@@ -233,34 +233,31 @@ async function renderChart(config) {
             return;
         }
         
-        // Subscribe to filter changes on the worksheet
+        // Subscribe to filter and parameter changes
         subscribeToFilterChanges(worksheet, config);
-        
-        // Subscribe to parameter changes for the dashboard
         subscribeToParameterChanges(config);
         
         // Retrieve all summary data from the worksheet
         const options = { maxRows: 1000000, ignoreSelection: true };
         const dataTable = await worksheet.getSummaryDataAsync(options);
         
-        // Find the indices for the mapped columns
+        // Build columns map and indices
         const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
         const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
         const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
         const amountIndex = columns.find(col => col.fieldName === config.amountCol)?.index;
-        
         if (sourceIndex === undefined || targetIndex === undefined || amountIndex === undefined) {
             console.error("One or more selected columns not found in data.");
             return;
         }
         
-        // Process the data to aggregate flows for the Sankey diagram
+        // Process data into flows for the Sankey diagram
         let flows = {};
         dataTable.data.forEach(row => {
             const sourceValue = row[sourceIndex].formattedValue;
             const targetValue = row[targetIndex].formattedValue;
             const amountValue = parseFloat(row[amountIndex].value);
-            if (isNaN(amountValue) || amountValue === 0) return; // Skip invalid or zero flows
+            if (isNaN(amountValue) || amountValue === 0) return; // Skip invalid/zero flows
             
             const key = sourceValue + '||' + targetValue;
             if (!flows[key]) {
@@ -269,7 +266,7 @@ async function renderChart(config) {
             flows[key].amount += amountValue;
         });
         
-        // Build the list of unique nodes
+        // Create a unique nodes object with index references
         let nodes = {};
         Object.values(flows).forEach(flow => {
             if (!(flow.source in nodes)) {
@@ -280,7 +277,7 @@ async function renderChart(config) {
             }
         });
         
-        // Build the links array for Plotly
+        // Build links array for Plotly
         let links = [];
         Object.values(flows).forEach(flow => {
             links.push({
@@ -290,38 +287,30 @@ async function renderChart(config) {
             });
         });
         
-        // Create an array of original node labels
+        // Create original node labels and compute totals
         const nodeLabels = Object.keys(nodes);
-        
-        // Compute the inflow and outflow for each node
         let inFlow = new Array(nodeLabels.length).fill(0);
         let outFlow = new Array(nodeLabels.length).fill(0);
         links.forEach(link => {
             outFlow[link.source] += link.value;
             inFlow[link.target] += link.value;
         });
-        // For each node, the displayed total is the larger of the two values.
         const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
-        
-        // Append totals to the node label (e.g., "NodeName (Total)")
         const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
         
-        // Create an array of colors for each node using the saved nodeColors mapping (fallback to default blue)
+        // Create node colors from config with a default fallback
         const nodeColorsArr = nodeLabels.map(label => {
             return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
         });
         
-        // Configure the Plotly Sankey diagram data
+        // Configure the Plotly Sankey diagram data (pass a default link color)
         const data = [{
             type: "sankey",
             orientation: "h",
             node: {
                 pad: 15,
                 thickness: 20,
-                line: {
-                    color: "black",
-                    width: 0.5
-                },
+                line: { color: "black", width: 0.5 },
                 label: nodeLabelsWithTotals,
                 color: nodeColorsArr
             },
@@ -329,25 +318,65 @@ async function renderChart(config) {
                 source: links.map(link => link.source),
                 target: links.map(link => link.target),
                 value: links.map(link => link.value),
-                color: links.map(link => {
-                    // Get the source and target node colors
-                    const sourceColor = nodeColorsArr[link.source];
-                    const targetColor = nodeColorsArr[link.target];
-                    // Create a gradient array for each link
-                    return [`${sourceColor}`, `${targetColor}`];
-                })
+                // Use a dummy color; we will override with gradients below
+                color: links.map(() => "#AAAAAA")
             }
         }];
         
-        // Updated layout without a title and using custom dimensions
         const layout = {
             font: { size: 10 },
             width: parseInt(config.chartWidth) || 600,
             height: parseInt(config.chartHeight) || 400
         };
         
-        // Render the chart into the 'chart' div
-        Plotly.newPlot('chart', data, layout);
+        // Render the chart and then post-process its SVG for gradient fills on links
+        Plotly.newPlot('chart', data, layout).then(gd => {
+            // Obtain the SVG element in the Plotly graph div
+            let svg = gd.querySelector('svg');
+            let defs = svg.querySelector('defs');
+            if (!defs) {
+                // Create <defs> if it doesn't exist
+                defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                svg.insertBefore(defs, svg.firstChild);
+            }
+            
+            // Select all link path elements (ordered as in the data array)
+            const linkPaths = svg.querySelectorAll('.sankey-link path');
+            linkPaths.forEach((path, i) => {
+                if (i >= links.length) return; 
+                
+                // For each link get the corresponding source and target colors
+                const currentLink = links[i];
+                const sourceColor = nodeColorsArr[currentLink.source];
+                const targetColor = nodeColorsArr[currentLink.target];
+                
+                // Create a unique linearGradient id
+                const gradientId = "gradient" + i;
+                let linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                linearGradient.setAttribute("id", gradientId);
+                linearGradient.setAttribute("gradientUnits", "userSpaceOnUse");
+                // Set a horizontal gradient direction (left-to-right)
+                linearGradient.setAttribute("x1", "0%");
+                linearGradient.setAttribute("y1", "0%");
+                linearGradient.setAttribute("x2", "100%");
+                linearGradient.setAttribute("y2", "0%");
+                
+                // Define gradient stops at 0% and 100%
+                let stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                stop1.setAttribute("offset", "0%");
+                stop1.setAttribute("stop-color", sourceColor);
+                let stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                stop2.setAttribute("offset", "100%");
+                stop2.setAttribute("stop-color", targetColor);
+                
+                linearGradient.appendChild(stop1);
+                linearGradient.appendChild(stop2);
+                defs.appendChild(linearGradient);
+                
+                // Update the current link's fill to the gradient
+                path.setAttribute("fill", `url(#${gradientId})`);
+            });
+        });
         
         // Hide the extension title once the chart is displayed
         const extensionTitle = document.querySelector('h2');
