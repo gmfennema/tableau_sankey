@@ -31,6 +31,10 @@ function showConfigUI() {
         populateColumnMapping();
     });
     
+    // When source or target column selections change, update the node color pickers
+    document.getElementById('sourceSelect').addEventListener('change', updateNodeColorsMapping);
+    document.getElementById('targetSelect').addEventListener('change', updateNodeColorsMapping);
+    
     // Save configuration when the button is clicked
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
         saveConfiguration();
@@ -103,6 +107,68 @@ async function populateColumnMapping() {
     }
 }
 
+/**
+ * Updates the node color mapping UI by fetching all data from the selected worksheet,
+ * computing the unique set of nodes from the selected source and target columns,
+ * and creating a color picker for each.
+ */
+async function updateNodeColorsMapping() {
+    const worksheetName = document.getElementById('worksheetSelect').value;
+    const sourceCol = document.getElementById('sourceSelect').value;
+    const targetCol = document.getElementById('targetSelect').value;
+    if (!worksheetName || !sourceCol || !targetCol) return;
+    try {
+        const dashboard = tableau.extensions.dashboardContent.dashboard;
+        const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
+        if (!worksheet) {
+            console.error("Worksheet not found");
+            return;
+        }
+        // Retrieve all summary data from the worksheet
+        const options = { maxRows: 1000000, ignoreSelection: true };
+        const dataTable = await worksheet.getSummaryDataAsync(options);
+        
+        // Find the column indices for the selected source and target columns
+        const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
+        const sourceIndex = columns.find(col => col.fieldName === sourceCol)?.index;
+        const targetIndex = columns.find(col => col.fieldName === targetCol)?.index;
+        if (sourceIndex === undefined || targetIndex === undefined) {
+            return;
+        }
+        
+        // Collect all unique nodes from both source and target columns
+        let nodeSet = new Set();
+        dataTable.data.forEach(row => {
+            const sourceValue = row[sourceIndex].formattedValue;
+            const targetValue = row[targetIndex].formattedValue;
+            nodeSet.add(sourceValue);
+            nodeSet.add(targetValue);
+        });
+        const nodes = Array.from(nodeSet);
+        
+        // Populate the nodeColorsMapping container with a color picker for each node
+        const nodeColorsMappingContainer = document.getElementById('nodeColorsMapping');
+        nodeColorsMappingContainer.innerHTML = '<p>Select Node Colors:</p>';
+        nodes.forEach(node => {
+            const label = document.createElement('label');
+            label.textContent = node + ": ";
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            // Set default to blue (#0000FF) – you can change this default if desired
+            colorInput.value = "#0000FF";
+            // Store the node name in a data attribute so we can retrieve it later
+            colorInput.dataset.nodeLabel = node;
+            nodeColorsMappingContainer.appendChild(label);
+            nodeColorsMappingContainer.appendChild(colorInput);
+            nodeColorsMappingContainer.appendChild(document.createElement('br'));
+        });
+        // Unhide the node colors section
+        nodeColorsMappingContainer.classList.remove('hidden');
+    } catch (error) {
+        console.error("Error updating node colors mapping:", error);
+    }
+}
+
 async function saveConfiguration() {
     // Retrieve selected values from the UI
     const worksheetName = document.getElementById('worksheetSelect').value;
@@ -118,8 +184,15 @@ async function saveConfiguration() {
         return;
     }
     
+    // Retrieve node color selections from the UI
+    let nodeColors = {};
+    document.querySelectorAll('#nodeColorsMapping input[type="color"]').forEach(input => {
+        let nodeLabel = input.dataset.nodeLabel;
+        nodeColors[nodeLabel] = input.value;
+    });
+    
     // Save the configuration using Tableau's settings API
-    const config = { worksheetName, sourceCol, targetCol, amountCol, chartWidth, chartHeight };
+    const config = { worksheetName, sourceCol, targetCol, amountCol, chartWidth, chartHeight, nodeColors };
     tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
     await tableau.extensions.settings.saveAsync();
     
@@ -192,6 +265,10 @@ async function renderChart(config) {
         
         // Create an array of node labels
         const nodeLabels = Object.keys(nodes);
+        // Create an array of colors for each node using the saved nodeColors mapping (fallback to default blue)
+        const nodeColorsArr = nodeLabels.map(label => {
+            return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
+        });
         
         // Configure the Plotly Sankey diagram data
         const data = [{
@@ -205,7 +282,7 @@ async function renderChart(config) {
                     width: 0.5
                 },
                 label: nodeLabels,
-                color: "blue"  // basic color for version 1
+                color: nodeColorsArr
             },
             link: {
                 source: links.map(link => link.source),
