@@ -315,14 +315,15 @@ async function renderChart(config) {
         const data = [{
             type: "sankey",
             orientation: "h",
+            arrangement: "snap",
             node: {
-                pad: 15,
+                pad: 10,
                 thickness: 20,
                 line: {
                     color: "transparent",
                     width: 0
                 },
-                label: nodeLabels,  // Use original labels without totals
+                label: nodeLabels,
                 color: nodeColorsArr,
                 hoverinfo: 'text',
                 hovertext: hoverText
@@ -330,15 +331,24 @@ async function renderChart(config) {
             link: {
                 source: links.map(link => link.source),
                 target: links.map(link => link.target),
-                value: links.map(link => link.value)
+                value: links.map(link => link.value),
+                hoverinfo: "none"
             }
         }];
         
-        // Updated layout without a title and using custom dimensions
+        // Updated layout to include some additional settings
         const layout = {
             font: { size: 10 },
             width: parseInt(config.chartWidth) || 600,
-            height: parseInt(config.chartHeight) || 400
+            height: parseInt(config.chartHeight) || 400,
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            margin: {
+                l: 5,
+                r: 5,
+                t: 5,
+                b: 5
+            }
         };
         
         // Render the chart into the 'chart' div
