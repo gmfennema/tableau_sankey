@@ -201,9 +201,17 @@ async function saveConfiguration() {
     renderChart(config);
 }
 
+// After initializing the extension and locating the worksheet, add an event listener for filter changes.
+function subscribeToFilterChanges(worksheet, config) {
+    worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
+        console.log('A filter has changed, updating chart...');
+        renderChart(config);
+    });
+}
+
+// In the renderChart function, after finding the worksheet, subscribe to filter changes:
 async function renderChart(config) {
     try {
-        // Using the saved configuration, locate the worksheet
         const dashboard = tableau.extensions.dashboardContent.dashboard;
         const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
         if (!worksheet) {
@@ -211,6 +219,9 @@ async function renderChart(config) {
             return;
         }
         
+        // Subscribe to filter changes on the worksheet
+        subscribeToFilterChanges(worksheet, config);
+
         // Retrieve all summary data from the worksheet
         const options = { maxRows: 1000000, ignoreSelection: true };
         const dataTable = await worksheet.getSummaryDataAsync(options);
