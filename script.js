@@ -300,12 +300,12 @@ async function renderChart(config) {
             outFlow[link.source] += link.value;
             inFlow[link.target] += link.value;
         });
-        // For each node, the displayed total is the larger of the two values.
-        const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
-        
-        // Append totals to the node label (e.g., "NodeName (Total)")
-        const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
-        
+
+        // Create hover text with totals instead of modifying the labels
+        const hoverText = nodeLabels.map((label, i) => 
+            `${label}<br>Total: ${Math.max(inFlow[i], outFlow[i])}`
+        );
+
         // Create an array of colors for each node using the saved nodeColors mapping (fallback to default blue)
         const nodeColorsArr = nodeLabels.map(label => {
             return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
@@ -322,8 +322,10 @@ async function renderChart(config) {
                     color: "transparent",
                     width: 0
                 },
-                label: nodeLabelsWithTotals,
-                color: nodeColorsArr
+                label: nodeLabels,  // Use original labels without totals
+                color: nodeColorsArr,
+                hoverinfo: 'text',
+                hovertext: hoverText
             },
             link: {
                 source: links.map(link => link.source),
