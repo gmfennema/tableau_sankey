@@ -319,8 +319,8 @@ async function renderChart(config) {
                 pad: 15,
                 thickness: 20,
                 line: {
-                    color: "black",
-                    width: 0.5
+                    color: "transparent",
+                    width: 0
                 },
                 label: nodeLabelsWithTotals,
                 color: nodeColorsArr
