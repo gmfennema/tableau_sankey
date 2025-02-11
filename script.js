@@ -263,8 +263,22 @@ async function renderChart(config) {
             });
         });
         
-        // Create an array of node labels
+        // Create an array of original node labels
         const nodeLabels = Object.keys(nodes);
+        
+        // Compute the inflow and outflow for each node
+        let inFlow = new Array(nodeLabels.length).fill(0);
+        let outFlow = new Array(nodeLabels.length).fill(0);
+        links.forEach(link => {
+            outFlow[link.source] += link.value;
+            inFlow[link.target] += link.value;
+        });
+        // For each node, the displayed total is the larger of the two values.
+        const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
+        
+        // Append totals to the node label (e.g., "NodeName (Total)")
+        const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
+        
         // Create an array of colors for each node using the saved nodeColors mapping (fallback to default blue)
         const nodeColorsArr = nodeLabels.map(label => {
             return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
@@ -281,7 +295,7 @@ async function renderChart(config) {
                     color: "black",
                     width: 0.5
                 },
-                label: nodeLabels,
+                label: nodeLabelsWithTotals,
                 color: nodeColorsArr
             },
             link: {
