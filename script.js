@@ -109,6 +109,9 @@ async function saveConfiguration() {
     const sourceCol = document.getElementById('sourceSelect').value;
     const targetCol = document.getElementById('targetSelect').value;
     const amountCol = document.getElementById('amountSelect').value;
+    // Retrieve the custom chart dimensions (use defaults if not provided)
+    const chartWidth = document.getElementById('chartWidth').value || "600";
+    const chartHeight = document.getElementById('chartHeight').value || "400";
     
     if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
         alert("Please select a worksheet and map all three columns.");
@@ -116,7 +119,7 @@ async function saveConfiguration() {
     }
     
     // Save the configuration using Tableau's settings API
-    const config = { worksheetName, sourceCol, targetCol, amountCol };
+    const config = { worksheetName, sourceCol, targetCol, amountCol, chartWidth, chartHeight };
     tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
     await tableau.extensions.settings.saveAsync();
     
@@ -211,17 +214,21 @@ async function renderChart(config) {
             }
         }];
         
+        // Updated layout without a title and using custom dimensions
         const layout = {
-            title: "Sankey Diagram",
-            font: {
-                size: 10
-            },
-            width: 600,
-            height: 400
+            font: { size: 10 },
+            width: parseInt(config.chartWidth) || 600,
+            height: parseInt(config.chartHeight) || 400
         };
         
         // Render the chart into the 'chart' div
         Plotly.newPlot('chart', data, layout);
+        
+        // Hide the extension title once the chart is displayed
+        const extensionTitle = document.querySelector('h2');
+        if (extensionTitle) {
+            extensionTitle.style.display = 'none';
+        }
         
     } catch (error) {
         console.error("Error rendering Sankey chart:", error);

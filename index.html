@@ -8,7 +8,7 @@
   <!-- Load Plotly -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <!-- Ensure a minimum width of 600px -->
-  <meta name="viewport" content="width=600, initial-scale=1">
+  <meta name="viewport" content="width=1200, initial-scale=1">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -22,7 +22,7 @@
     .config-section, .chart-section {
       margin-bottom: 20px;
     }
-    select, button {
+    select, button, input {
       font-size: 14px;
       padding: 8px;
       margin: 5px 0;
@@ -63,6 +63,13 @@
       <select id="amountSelect">
         <option value="" disabled selected>Select Amount Column</option>
       </select>
+      <br>
+      <p>Set Chart Dimensions:</p>
+      <label for="chartWidth">Width (px):</label>
+      <input type="number" id="chartWidth" placeholder="600" min="1">
+      <br>
+      <label for="chartHeight">Height (px):</label>
+      <input type="number" id="chartHeight" placeholder="400" min="1">
       <br>
       <button id="saveConfigBtn">Save Configuration</button>
     </div>
