@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tableau Sankey Chart Extension</title>
+  <!-- Load the Tableau Extensions API -->
+  <script type="module" src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+  <!-- Load Plotly -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- Ensure a minimum width of 600px -->
+  <meta name="viewport" content="width=600, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .hidden {
+      display: none;
+    }
+    .config-section, .chart-section {
+      margin-bottom: 20px;
+    }
+    select, button {
+      font-size: 14px;
+      padding: 8px;
+      margin: 5px 0;
+      min-width: 150px;
+    }
+    #chart {
+      min-width: 600px;
+      width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <h2>Tableau Sankey Chart Extension</h2>
+  
+  <!-- Configuration Section (shown when settings have not yet been saved) -->
+  <div class="config-section" id="configSection">
+    <div id="worksheetConfig">
+      <label for="worksheetSelect">Select Worksheet:</label>
+      <select id="worksheetSelect">
+        <option value="" disabled selected>Select Worksheet</option>
+      </select>
+    </div>
+    <!-- Column mapping UI – initially hidden -->
+    <div id="columnMapping" class="hidden">
+      <p>Map columns to the following fields:</p>
+      <label for="sourceSelect">Source:</label>
+      <select id="sourceSelect">
+        <option value="" disabled selected>Select Source Column</option>
+      </select>
+      <br>
+      <label for="targetSelect">Target:</label>
+      <select id="targetSelect">
+        <option value="" disabled selected>Select Target Column</option>
+      </select>
+      <br>
+      <label for="amountSelect">Amount:</label>
+      <select id="amountSelect">
+        <option value="" disabled selected>Select Amount Column</option>
+      </select>
+      <br>
+      <button id="saveConfigBtn">Save Configuration</button>
+    </div>
+  </div>
+  
+  <!-- Chart Section -->
+  <div class="chart-section">
+    <div id="chart"></div>
+  </div>
+  
+  <!-- Application logic -->
+  <script src="script.js"></script>
+</body>
+</html>
