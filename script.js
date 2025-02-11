@@ -300,12 +300,12 @@ async function renderChart(config) {
             outFlow[link.source] += link.value;
             inFlow[link.target] += link.value;
         });
-
-        // Create hover text with totals instead of modifying the labels
-        const hoverText = nodeLabels.map((label, i) => 
-            `${label}<br>Total: ${Math.max(inFlow[i], outFlow[i])}`
-        );
-
+        // For each node, the displayed total is the larger of the two values.
+        const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
+        
+        // Append totals to the node label (e.g., "NodeName (Total)")
+        const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
+        
         // Create an array of colors for each node using the saved nodeColors mapping (fallback to default blue)
         const nodeColorsArr = nodeLabels.map(label => {
             return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
@@ -315,40 +315,28 @@ async function renderChart(config) {
         const data = [{
             type: "sankey",
             orientation: "h",
-            arrangement: "snap",
             node: {
-                pad: 10,
+                pad: 15,
                 thickness: 20,
                 line: {
-                    color: "transparent",
-                    width: 0
+                    color: "black",
+                    width: 0.5
                 },
-                label: nodeLabels,
-                color: nodeColorsArr,
-                hoverinfo: 'text',
-                hovertext: hoverText
+                label: nodeLabelsWithTotals,
+                color: nodeColorsArr
             },
             link: {
                 source: links.map(link => link.source),
                 target: links.map(link => link.target),
-                value: links.map(link => link.value),
-                hoverinfo: "none"
+                value: links.map(link => link.value)
             }
         }];
         
-        // Updated layout to include some additional settings
+        // Updated layout without a title and using custom dimensions
         const layout = {
             font: { size: 10 },
             width: parseInt(config.chartWidth) || 600,
-            height: parseInt(config.chartHeight) || 400,
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(0,0,0,0)',
-            margin: {
-                l: 5,
-                r: 5,
-                t: 5,
-                b: 5
-            }
+            height: parseInt(config.chartHeight) || 400
         };
         
         // Render the chart into the 'chart' div
