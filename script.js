@@ -260,7 +260,7 @@ async function renderChart(config) {
             const sourceValue = row[sourceIndex].formattedValue;
             const targetValue = row[targetIndex].formattedValue;
             const amountValue = parseFloat(row[amountIndex].value);
-            if (isNaN(amountValue)) return; // Skip rows where amount is not a number
+            if (isNaN(amountValue) || amountValue === 0) return; // Skip invalid or zero flows
             
             const key = sourceValue + '||' + targetValue;
             if (!flows[key]) {
