@@ -201,7 +201,7 @@ async function saveConfiguration() {
     renderChart(config);
 }
 
-// After initializing the extension and locating the worksheet, add an event listener for filter changes.
+// Updated function: subscribeToFilterChanges() remains unchanged
 function subscribeToFilterChanges(worksheet, config) {
     worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
         console.log('A filter has changed, updating chart...');
@@ -209,7 +209,21 @@ function subscribeToFilterChanges(worksheet, config) {
     });
 }
 
-// In the renderChart function, after finding the worksheet, subscribe to filter changes:
+// New function to subscribe to parameter changes
+function subscribeToParameterChanges(config) {
+    tableau.extensions.dashboardContent.dashboard.getParametersAsync().then(parameters => {
+        parameters.forEach(parameter => {
+            parameter.addEventListener(tableau.TableauEventType.ParameterChanged, () => {
+                console.log('A parameter has changed, updating chart...');
+                renderChart(config);
+            });
+        });
+    }).catch(error => {
+        console.error("Error subscribing to parameter changes:", error);
+    });
+}
+
+// Modified renderChart function to include parameter change subscriptions
 async function renderChart(config) {
     try {
         const dashboard = tableau.extensions.dashboardContent.dashboard;
@@ -221,7 +235,10 @@ async function renderChart(config) {
         
         // Subscribe to filter changes on the worksheet
         subscribeToFilterChanges(worksheet, config);
-
+        
+        // Subscribe to parameter changes for the dashboard
+        subscribeToParameterChanges(config);
+        
         // Retrieve all summary data from the worksheet
         const options = { maxRows: 1000000, ignoreSelection: true };
         const dataTable = await worksheet.getSummaryDataAsync(options);
@@ -242,9 +259,8 @@ async function renderChart(config) {
         dataTable.data.forEach(row => {
             const sourceValue = row[sourceIndex].formattedValue;
             const targetValue = row[targetIndex].formattedValue;
-            // Use the raw value for amount (assumed numeric)
             const amountValue = parseFloat(row[amountIndex].value);
-            if (isNaN(amountValue)) return; // skip rows where amount is not a number
+            if (isNaN(amountValue)) return; // Skip rows where amount is not a number
             
             const key = sourceValue + '||' + targetValue;
             if (!flows[key]) {
