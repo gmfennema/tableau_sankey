@@ -328,7 +328,14 @@ async function renderChart(config) {
             link: {
                 source: links.map(link => link.source),
                 target: links.map(link => link.target),
-                value: links.map(link => link.value)
+                value: links.map(link => link.value),
+                color: links.map(link => {
+                    // Get the source and target node colors
+                    const sourceColor = nodeColorsArr[link.source];
+                    const targetColor = nodeColorsArr[link.target];
+                    // Create a gradient array for each link
+                    return [`${sourceColor}`, `${targetColor}`];
+                })
             }
         }];
         
