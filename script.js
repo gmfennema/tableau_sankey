@@ -27,8 +27,53 @@ function showConfigUI() {
     populateWorksheetDropdown();
 
     // When a worksheet is selected, populate the column mapping UI
-    document.getElementById('worksheetSelect').addEventListener('change', () => {
-        populateColumnMapping();
+    document.getElementById('worksheetSelect').addEventListener('change', async function (e) {
+        const worksheetName = e.target.value;
+        const dashboard = tableau.extensions.dashboardContent.dashboard;
+        const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
+        if (!worksheet) {
+            console.error("Worksheet not found.");
+            return;
+        }
+        
+        try {
+            // Retrieve only one row of summary data (sufficient for column names)
+            const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+            const columns = dataTable.columns;
+            
+            // Get the dropdown elements for the column mapping section
+            const sourceSelect = document.getElementById('sourceSelect');
+            const targetSelect = document.getElementById('targetSelect');
+            const amountSelect = document.getElementById('amountSelect');
+            
+            // Reset the dropdowns (reuse the prompt option)
+            sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
+            targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
+            amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
+            
+            // Populate each dropdown with all available columns from the worksheet
+            columns.forEach(col => {
+                const optionSource = document.createElement('option');
+                optionSource.text = col.fieldName;
+                optionSource.value = col.fieldName;
+                sourceSelect.add(optionSource);
+                
+                const optionTarget = document.createElement('option');
+                optionTarget.text = col.fieldName;
+                optionTarget.value = col.fieldName;
+                targetSelect.add(optionTarget);
+                
+                const optionAmount = document.createElement('option');
+                optionAmount.text = col.fieldName;
+                optionAmount.value = col.fieldName;
+                amountSelect.add(optionAmount);
+            });
+            
+            // Unhide the column mapping section now that we have our columns
+            document.getElementById('columnMapping').classList.remove('hidden');
+        } catch (error) {
+            console.error("Failed to fetch summary data for columns:", error);
+        }
     });
     
     // When source or target column selections change, update the node color pickers
