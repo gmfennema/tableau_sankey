@@ -175,9 +175,6 @@ async function saveConfiguration() {
     const sourceCol = document.getElementById('sourceSelect').value;
     const targetCol = document.getElementById('targetSelect').value;
     const amountCol = document.getElementById('amountSelect').value;
-    // Retrieve the custom chart dimensions (use defaults if not provided)
-    const chartWidth = document.getElementById('chartWidth').value || "600";
-    const chartHeight = document.getElementById('chartHeight').value || "400";
     
     if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
         alert("Please select a worksheet and map all three columns.");
@@ -191,8 +188,9 @@ async function saveConfiguration() {
         nodeColors[nodeLabel] = input.value;
     });
     
-    // Save the configuration using Tableau's settings API
-    const config = { worksheetName, sourceCol, targetCol, amountCol, chartWidth, chartHeight, nodeColors };
+    // Save the configuration using Tableau's settings API.
+    // Notice we removed chartWidth and chartHeight from config.
+    const config = { worksheetName, sourceCol, targetCol, amountCol, nodeColors };
     tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
     await tableau.extensions.settings.saveAsync();
     
@@ -323,10 +321,12 @@ async function renderChart(config) {
             }
         }];
         
+        // Instead of using static dimensions from config, get dynamic sizing from the container
+        const chartContainer = document.getElementById('chart');
         const layout = {
             font: { size: 10 },
-            width: parseInt(config.chartWidth) || 600,
-            height: parseInt(config.chartHeight) || 400
+            width: chartContainer.clientWidth,   // Use the container's current width
+            height: chartContainer.clientHeight  // And current height
         };
         
         // Render the chart and then post-process its SVG for gradient fills on links
@@ -388,3 +388,12 @@ async function renderChart(config) {
         console.error("Error rendering Sankey chart:", error);
     }
 }
+
+// Dynamically update the chart when the window is resized
+window.addEventListener('resize', () => {
+    const configStr = tableau.extensions.settings.get("sankeyConfig");
+    if (configStr) {
+         const config = JSON.parse(configStr);
+         renderChart(config);
+    }
+});
