@@ -20,6 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(error => {
         console.error("Error during initialization:", error);
     });
+
+    // Add explicit styles to the chart container
+    const chartContainer = document.getElementById('chart');
+    if (chartContainer) {
+        chartContainer.style.width = '100%';
+        chartContainer.style.minHeight = '400px';
+        chartContainer.style.border = '1px solid #ccc';
+    }
 });
 
 function showConfigUI() {
@@ -308,6 +316,8 @@ function subscribeToParameterChanges(config) {
 // Modified renderChart function to include parameter change subscriptions
 async function renderChart(config) {
     try {
+        console.log("Starting renderChart with config:", config);
+        
         const dashboard = tableau.extensions.dashboardContent.dashboard;
         const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
         if (!worksheet) {
@@ -315,13 +325,20 @@ async function renderChart(config) {
             return;
         }
         
-        // Subscribe to filter and parameter changes
-        subscribeToFilterChanges(worksheet, config);
-        subscribeToParameterChanges(config);
-        
         // Retrieve all summary data from the worksheet
         const options = { maxRows: 1000000, ignoreSelection: true };
         const dataTable = await worksheet.getSummaryDataAsync(options);
+        console.log("Retrieved data:", dataTable);
+        
+        // Check if we have any data
+        if (!dataTable.data || dataTable.data.length === 0) {
+            console.error("No data retrieved from worksheet");
+            return;
+        }
+        
+        // Subscribe to filter and parameter changes
+        subscribeToFilterChanges(worksheet, config);
+        subscribeToParameterChanges(config);
         
         // Build columns map and indices for source, target, and amount
         const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
@@ -399,17 +416,24 @@ async function renderChart(config) {
         
         // Clear any existing chart content
         const container = document.getElementById('chart');
+        if (!container) {
+            console.error("Chart container not found");
+            return;
+        }
         container.innerHTML = "";
         
-        // Set up dimensions (using the container's size)
-        const width = container.clientWidth;
-        const height = container.clientHeight || 600; // fallback height
+        // Set explicit dimensions
+        const width = Math.max(container.clientWidth, 600); // Minimum width of 600px
+        const height = Math.max(container.clientHeight, 400); // Minimum height of 400px
         
-        // Create an SVG element
+        console.log("Chart dimensions:", { width, height });
+        
+        // Create an SVG element with explicit dimensions
         const svg = d3.select(container)
             .append("svg")
             .attr("width", width)
-            .attr("height", height);
+            .attr("height", height)
+            .style("border", "1px solid #ccc"); // Added border for visibility during debugging
         
         // Set up the d3-sankey generator
         const { sankey, sankeyLinkHorizontal } = d3.sankey;
@@ -484,6 +508,11 @@ async function renderChart(config) {
         }
     } catch (error) {
         console.error("Error rendering Sankey chart with D3:", error);
+        // Display error message in the chart container
+        const container = document.getElementById('chart');
+        if (container) {
+            container.innerHTML = `<p style="color: red;">Error rendering chart: ${error.message}</p>`;
+        }
     }
 }
 
