@@ -81,8 +81,41 @@ function showConfigUI() {
     document.getElementById('targetSelect').addEventListener('change', updateNodeColorsMapping);
     
     // Save configuration when the button is clicked
-    document.getElementById('saveConfigBtn').addEventListener('click', () => {
-        saveConfiguration();
+    document.getElementById('saveConfigBtn').addEventListener('click', async function() {
+        // Retrieve the worksheet selection and column mappings
+        const worksheetSelect = document.getElementById("worksheetSelect");
+        const sourceSelect = document.getElementById("sourceSelect");
+        const targetSelect = document.getElementById("targetSelect");
+        const amountSelect = document.getElementById("amountSelect");
+
+        const worksheetName = worksheetSelect.value;
+        const sourceCol = sourceSelect.value;
+        const targetCol = targetSelect.value;
+        const amountCol = amountSelect.value;
+
+        // Basic validation to ensure all selections are made
+        if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
+            console.error("Please make sure you have selected a worksheet and all three column values.");
+            return;
+        }
+
+        // Build the configuration object (extend with more properties if needed)
+        const config = {
+            worksheetName: worksheetName,
+            sourceCol: sourceCol,
+            targetCol: targetCol,
+            amountCol: amountCol,
+            // If your node color configuration is used, include it here.
+            // nodeColors: { ... }
+        };
+
+        // (Optional) Persist this configuration as needed with Tableau settings
+
+        // Optionally, hide or disable the configuration UI
+        document.getElementById("configSection").classList.add("hidden");
+
+        // Render the chart using the newly built configuration
+        await renderChart(config);
     });
 }
 
