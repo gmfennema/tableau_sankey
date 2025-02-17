@@ -58,9 +58,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modify worksheet selection change handler
     document.getElementById('worksheetSelect').addEventListener('change', async (e) => {
       const worksheetName = e.target.value;
+      console.log("Selected worksheet:", worksheetName);
+      
       const dashboard = tableau.extensions.dashboardContent.dashboard;
       const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
-      if (!worksheet) return;
+      if (!worksheet) {
+        console.error("Worksheet not found");
+        return;
+      }
+      console.log("Found worksheet:", worksheet);
   
       // Show the column mapping section first
       document.getElementById('columnMapping').classList.remove('hidden');
@@ -107,11 +113,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // New helper function to update column selections
+  // Update the updateColumnSelections function with more logging
   async function updateColumnSelections(worksheet) {
+    console.log("Starting column selection update");
+    
     // Retrieve one row of summary data to get column names.
-    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
+    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+    console.log("Retrieved data table:", dataTable);
+    
     const columns = dataTable.columns.map(col => col.fieldName);
+    console.log("Available columns:", columns);
   
     // Populate the dropdowns for source, target, and amount.
     const sourceSelect = document.getElementById('sourceSelect');
@@ -148,6 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
       amountSelect.appendChild(opt3);
     });
   
+    console.log("Finished populating dropdowns");
+    
     // Unhide the column mapping section.
     document.getElementById('columnMapping').classList.remove('hidden');
   }
