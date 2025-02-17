@@ -1,9 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     tableau.extensions.initializeAsync().then(() => {
-      // If configuration was saved, use it; otherwise, show the config UI.
+      // Check if a configuration has already been saved.
       const configStr = tableau.extensions.settings.get("sankeyConfig");
       if (configStr) {
         const config = JSON.parse(configStr);
+        // If config is saved, hide the config UI and render the chart.
         document.getElementById('configSection').classList.add('hidden');
         renderChart(config);
       } else {
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error("Error initializing extension:", err);
     });
   
-    // Redraw the chart on window resize
+    // Re-render the chart on window resize.
     window.addEventListener('resize', () => {
       const configStr = tableau.extensions.settings.get("sankeyConfig");
       if (configStr) {
@@ -26,18 +27,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function showConfigUI() {
     populateWorksheetDropdown();
   
-    // When the worksheet changes, populate the column mapping dropdowns
+    // Attach an event listener for when the worksheet selection changes.
     document.getElementById('worksheetSelect').addEventListener('change', async (e) => {
       const worksheetName = e.target.value;
       const dashboard = tableau.extensions.dashboardContent.dashboard;
       const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
       if (!worksheet) return;
   
-      // Retrieve one row of summary data to get column names
+      // Retrieve one row of summary data to get column names.
       const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
       const columns = dataTable.columns.map(col => col.fieldName);
   
-      // Populate each dropdown
+      // Populate the dropdowns for source, target, and amount.
       const sourceSelect = document.getElementById('sourceSelect');
       const targetSelect = document.getElementById('targetSelect');
       const amountSelect = document.getElementById('amountSelect');
@@ -47,27 +48,27 @@ document.addEventListener('DOMContentLoaded', () => {
       amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
   
       columns.forEach(col => {
-        const option1 = document.createElement('option');
-        option1.value = col;
-        option1.text = col;
-        sourceSelect.appendChild(option1);
+        const opt1 = document.createElement('option');
+        opt1.value = col;
+        opt1.text = col;
+        sourceSelect.appendChild(opt1);
   
-        const option2 = document.createElement('option');
-        option2.value = col;
-        option2.text = col;
-        targetSelect.appendChild(option2);
+        const opt2 = document.createElement('option');
+        opt2.value = col;
+        opt2.text = col;
+        targetSelect.appendChild(opt2);
   
-        const option3 = document.createElement('option');
-        option3.value = col;
-        option3.text = col;
-        amountSelect.appendChild(option3);
+        const opt3 = document.createElement('option');
+        opt3.value = col;
+        opt3.text = col;
+        amountSelect.appendChild(opt3);
       });
   
-      // Show the column mapping section
+      // Unhide the column mapping section.
       document.getElementById('columnMapping').classList.remove('hidden');
     });
   
-    // Save configuration button handler
+    // Save configuration when the "Save Configuration" button is clicked.
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
       const worksheetName = document.getElementById('worksheetSelect').value;
       const sourceCol = document.getElementById('sourceSelect').value;
@@ -90,20 +91,18 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function populateWorksheetDropdown() {
     const dashboard = tableau.extensions.dashboardContent.dashboard;
-    const worksheetSelect = document.getElementById('worksheetSelect');
-    worksheetSelect.innerHTML = '<option value="" disabled selected>Select Worksheet</option>';
+    const wsSelect = document.getElementById('worksheetSelect');
+    wsSelect.innerHTML = '<option value="" disabled selected>Select Worksheet</option>';
     dashboard.worksheets.forEach(ws => {
       const option = document.createElement('option');
       option.value = ws.name;
       option.text = ws.name;
-      worksheetSelect.appendChild(option);
+      wsSelect.appendChild(option);
     });
   }
   
   async function renderChart(config) {
     try {
-      console.log("renderChart called with config:", config);
-  
       const dashboard = tableau.extensions.dashboardContent.dashboard;
       const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
       if (!worksheet) {
@@ -111,16 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
   
-      // Retrieve summary data from the worksheet
+      // Retrieve summary data from the worksheet.
       const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 100000, ignoreSelection: true });
-      console.log("Data table retrieved:", dataTable);
-  
-      if (!dataTable.data || dataTable.data.length === 0) {
-        console.error("No data returned from worksheet.");
-        return;
-      }
-  
       const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
+  
+      // Get the indices for the mapped columns.
       const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
       const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
       const amountIndex = columns.find(col => col.fieldName === config.amountCol)?.index;
@@ -128,9 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Column mapping error. Please verify your column selections.");
         return;
       }
-      console.log("Column indices:", { sourceIndex, targetIndex, amountIndex });
   
-      // Process data to aggregate flows
+      // Aggregate data into flows.
       const flows = {};
       dataTable.data.forEach(row => {
         const sourceVal = row[sourceIndex].formattedValue;
@@ -143,15 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         flows[key].amount += amount;
       });
-      console.log("Flows computed:", flows);
   
-      // If no flows are computed, log a message
       if (Object.keys(flows).length === 0) {
-        console.error("No valid flows found. Verify that your 'Amount' column contains valid numbers.");
+        console.error("No valid flows computed. Verify that your 'Amount' column contains valid numbers.");
         return;
       }
   
-      // Create unique list of nodes
+      // Create a unique mapping of nodes.
       const nodeMap = {};
       Object.values(flows).forEach(flow => {
         if (!(flow.source in nodeMap)) {
@@ -161,48 +152,45 @@ document.addEventListener('DOMContentLoaded', () => {
           nodeMap[flow.target] = Object.keys(nodeMap).length;
         }
       });
-      console.log("Node mapping:", nodeMap);
   
-      // Build links array
+      // Build links array using node indices.
       const links = Object.values(flows).map(flow => ({
         source: nodeMap[flow.source],
         target: nodeMap[flow.target],
         value: flow.amount
       }));
   
-      // Build nodes array
+      // Build nodes array.
       const nodes = Object.keys(nodeMap).map(label => ({ name: label }));
   
-      // Prepare the graph for the Sankey layout
+      // Prepare the graph for the Sankey layout.
       const graph = { nodes, links };
-      console.log("Graph object:", graph);
   
-      // Clear any existing chart content
+      // Clear any existing chart content.
       const container = document.getElementById('chart');
       container.innerHTML = "";
   
-      // Determine dimensions (minimum width 600, minimum height 400)
+      // Determine dimensions (minimum width 600, minimum height 400).
       const width = Math.max(container.clientWidth, 600);
       const height = Math.max(container.clientHeight, 400);
-      console.log("Chart dimensions:", { width, height });
   
-      // Create an SVG element
+      // Create an SVG element.
       const svg = d3.select(container)
         .append("svg")
         .attr("width", width)
         .attr("height", height);
   
-      // Set up the d3-sankey generator
-      const { sankey, sankeyLinkHorizontal } = d3.sankey;
-      const sankeyGenerator = sankey()
+      // Use d3Sankey instead of d3.sankey.
+      const sankeyGenerator = d3Sankey.sankey()
         .nodeWidth(20)
         .nodePadding(10)
         .extent([[1, 1], [width - 1, height - 1]]);
+      const sankeyLinkHorizontal = d3Sankey.sankeyLinkHorizontal;
   
+      // Compute the Sankey layout.
       const sankeyGraph = sankeyGenerator(graph);
-      console.log("Sankey layout computed:", sankeyGraph);
   
-      // Draw links
+      // Draw links.
       svg.append("g")
         .attr("fill", "none")
         .attr("stroke", "#000")
@@ -213,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .attr("d", sankeyLinkHorizontal())
         .attr("stroke-width", d => Math.max(1, d.width));
   
-      // Draw nodes
+      // Draw nodes.
       const node = svg.append("g")
         .selectAll("g")
         .data(sankeyGraph.nodes)
@@ -227,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .attr("fill", "#4682B4")
         .attr("stroke", "#000");
   
-      // Add node labels
+      // Add node labels.
       node.append("text")
         .attr("x", d => d.x0 - 6)
         .attr("y", d => (d.y0 + d.y1) / 2)
@@ -237,11 +225,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .filter(d => d.x0 < width / 2)
         .attr("x", d => d.x1 + 6)
         .attr("text-anchor", "start");
-  
-      console.log("Chart rendering complete.");
     } catch (error) {
-      console.error("Error rendering Sankey chart:", error);
-      const container = document.getElementById('chart');
-      container.innerHTML = `<p style="color: red;">Error rendering chart: ${error.message}</p>`;
+      console.error("Error rendering chart:", error);
+      document.getElementById('chart').innerHTML = `<p style="color: red;">Error rendering chart: ${error.message}</p>`;
     }
   }
