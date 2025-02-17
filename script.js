@@ -26,53 +26,59 @@ function showConfigUI() {
     document.getElementById('configSection').classList.remove('hidden');
     populateWorksheetDropdown();
 
-    // When a worksheet is selected, populate the column mapping UI
+    // Event listener to update column mapping dropdowns when a new worksheet is selected
     document.getElementById('worksheetSelect').addEventListener('change', async function (e) {
         const worksheetName = e.target.value;
+        console.log("Worksheet selected:", worksheetName);
+        
         const dashboard = tableau.extensions.dashboardContent.dashboard;
         const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
         if (!worksheet) {
-            console.error("Worksheet not found.");
+            console.error("Worksheet not found for:", worksheetName);
             return;
         }
         
         try {
-            // Retrieve only one row of summary data (sufficient for column names)
+            // Retrieve a single row of summary data to extract column information
             const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-            const columns = dataTable.columns;
+            console.log("Summary data:", dataTable);
             
-            // Get the dropdown elements for the column mapping section
+            const columns = dataTable.columns;
+            console.log("Available columns:", columns.map(col => col.fieldName));
+            
+            // Grab the dropdown elements for column mapping
             const sourceSelect = document.getElementById('sourceSelect');
             const targetSelect = document.getElementById('targetSelect');
             const amountSelect = document.getElementById('amountSelect');
             
-            // Reset the dropdowns (reuse the prompt option)
+            // Clear any existing options and add a prompt option
             sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
             targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
             amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
             
-            // Populate each dropdown with all available columns from the worksheet
+            // Populate each dropdown with the available columns
             columns.forEach(col => {
-                const optionSource = document.createElement('option');
-                optionSource.text = col.fieldName;
-                optionSource.value = col.fieldName;
-                sourceSelect.add(optionSource);
+                const optSource = document.createElement('option');
+                optSource.value = col.fieldName;
+                optSource.text = col.fieldName;
                 
-                const optionTarget = document.createElement('option');
-                optionTarget.text = col.fieldName;
-                optionTarget.value = col.fieldName;
-                targetSelect.add(optionTarget);
+                const optTarget = document.createElement('option');
+                optTarget.value = col.fieldName;
+                optTarget.text = col.fieldName;
                 
-                const optionAmount = document.createElement('option');
-                optionAmount.text = col.fieldName;
-                optionAmount.value = col.fieldName;
-                amountSelect.add(optionAmount);
+                const optAmount = document.createElement('option');
+                optAmount.value = col.fieldName;
+                optAmount.text = col.fieldName;
+                
+                sourceSelect.appendChild(optSource);
+                targetSelect.appendChild(optTarget);
+                amountSelect.appendChild(optAmount);
             });
             
-            // Unhide the column mapping section now that we have our columns
+            // Ensure the column mapping section is visible
             document.getElementById('columnMapping').classList.remove('hidden');
         } catch (error) {
-            console.error("Failed to fetch summary data for columns:", error);
+            console.error("Error fetching column data:", error);
         }
     });
     
