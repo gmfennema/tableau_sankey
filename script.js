@@ -175,10 +175,10 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function getDefaultColor(index) {
     const defaultColors = [
-        '#777777', 
-        '#00999F', 
         '#DDA60B', 
-        '#924390'
+        '#924390',
+        '#00999F', 
+        '#777777'
     ];
     return defaultColors[index] || '#4682B4';
   }
@@ -308,9 +308,9 @@ document.addEventListener('DOMContentLoaded', () => {
         .enter().append("path")
         .attr("d", sankeyLinkHorizontal())
         .attr("stroke", d => {
-            // Use the color of the source node with 50% opacity
-            const sourceColor = nodeColors[d.source.index % nodeColors.length] || '#4682B4';
-            return sourceColor;
+            // Use the color of the target node with 50% opacity
+            const targetColor = nodeColors[d.target.index % nodeColors.length] || '#4682B4';
+            return targetColor;
         })
         .attr("stroke-width", d => Math.max(1, d.width));
   
