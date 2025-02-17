@@ -47,12 +47,13 @@ function showConfigUI() {
         }
         
         try {
-            // Retrieve a single row of summary data to extract column information
-            const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-            console.log("Summary data:", dataTable);
+            // Get the full data schema instead of summary data
+            const dataTable = await worksheet.getDataSourcesAsync();
+            console.log("Data sources:", dataTable);
             
-            const columns = dataTable.columns;
-            console.log("Available columns:", columns.map(col => col.fieldName));
+            // Get the fields from the primary data source
+            const fields = dataTable[0].fields;
+            console.log("Available fields:", fields);
             
             // Grab the dropdown elements for column mapping
             const sourceSelect = document.getElementById('sourceSelect');
@@ -64,29 +65,32 @@ function showConfigUI() {
             targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
             amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
             
-            // Populate each dropdown with the available columns
-            columns.forEach(col => {
+            // Populate each dropdown with the available fields
+            fields.forEach(field => {
+                const fieldName = field.name;
+                
                 const optSource = document.createElement('option');
-                optSource.value = col.fieldName;
-                optSource.text = col.fieldName;
+                optSource.value = fieldName;
+                optSource.text = fieldName;
                 
                 const optTarget = document.createElement('option');
-                optTarget.value = col.fieldName;
-                optTarget.text = col.fieldName;
+                optTarget.value = fieldName;
+                optTarget.text = fieldName;
                 
                 const optAmount = document.createElement('option');
-                optAmount.value = col.fieldName;
-                optAmount.text = col.fieldName;
+                optAmount.value = fieldName;
+                optAmount.text = fieldName;
                 
-                sourceSelect.appendChild(optSource);
-                targetSelect.appendChild(optTarget);
-                amountSelect.appendChild(optAmount);
+                sourceSelect.appendChild(optSource.cloneNode(true));
+                targetSelect.appendChild(optTarget.cloneNode(true));
+                amountSelect.appendChild(optAmount.cloneNode(true));
             });
             
             // Ensure the column mapping section is visible
             document.getElementById('columnMapping').classList.remove('hidden');
         } catch (error) {
             console.error("Error fetching column data:", error);
+            console.log("Error details:", error.stack);
         }
     });
     
