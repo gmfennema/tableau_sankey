@@ -239,7 +239,7 @@ async function renderChart(config) {
         const options = { maxRows: 1000000, ignoreSelection: true };
         const dataTable = await worksheet.getSummaryDataAsync(options);
         
-        // Build columns map and indices
+        // Build columns map and indices for source, target, and amount
         const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
         const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
         const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
@@ -264,29 +264,29 @@ async function renderChart(config) {
             flows[key].amount += amountValue;
         });
         
-        // Create a unique nodes object with index references
-        let nodes = {};
+        // Create a unique mapping of nodes
+        let nodeMap = {};
         Object.values(flows).forEach(flow => {
-            if (!(flow.source in nodes)) {
-                nodes[flow.source] = Object.keys(nodes).length;
+            if (!(flow.source in nodeMap)) {
+                nodeMap[flow.source] = Object.keys(nodeMap).length;
             }
-            if (!(flow.target in nodes)) {
-                nodes[flow.target] = Object.keys(nodes).length;
+            if (!(flow.target in nodeMap)) {
+                nodeMap[flow.target] = Object.keys(nodeMap).length;
             }
         });
         
-        // Build links array for Plotly
+        // Build links array referring to node indices
         let links = [];
         Object.values(flows).forEach(flow => {
             links.push({
-                source: nodes[flow.source],
-                target: nodes[flow.target],
+                source: nodeMap[flow.source],
+                target: nodeMap[flow.target],
                 value: flow.amount
             });
         });
         
-        // Create original node labels and compute totals
-        const nodeLabels = Object.keys(nodes);
+        // Compute node totals (choose the max of in-flow or out-flow)
+        const nodeLabels = Object.keys(nodeMap);
         let inFlow = new Array(nodeLabels.length).fill(0);
         let outFlow = new Array(nodeLabels.length).fill(0);
         links.forEach(link => {
@@ -296,96 +296,110 @@ async function renderChart(config) {
         const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
         const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
         
-        // Create node colors from config with a default fallback
+        // Create node colors using the configuration (default fallback to blue)
         const nodeColorsArr = nodeLabels.map(label => {
             return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
         });
         
-        // Configure the Plotly Sankey diagram data (pass a default link color)
-        const data = [{
-            type: "sankey",
-            orientation: "h",
-            node: {
-                pad: 15,
-                thickness: 20,
-                line: { color: "black", width: 0.5 },
-                label: nodeLabelsWithTotals,
-                color: nodeColorsArr
-            },
-            link: {
-                source: links.map(link => link.source),
-                target: links.map(link => link.target),
-                value: links.map(link => link.value),
-                // Use a dummy color; we will override with gradients below
-                color: links.map(() => "#AAAAAA")
-            }
-        }];
+        // Prepare nodes array for d3-sankey
+        const sankeyNodes = nodeLabelsWithTotals.map((name, i) => ({
+            name: name,
+            color: nodeColorsArr[i]
+        }));
         
-        // Instead of using static dimensions from config, get dynamic sizing from the container
-        const chartContainer = document.getElementById('chart');
-        const layout = {
-            font: { size: 10 },
-            width: chartContainer.clientWidth,   // Use the container's current width
-            height: chartContainer.clientHeight  // And current height
+        // Prepare the graph object for d3-sankey
+        const graph = {
+            nodes: sankeyNodes,
+            links: links
         };
         
-        // Render the chart and then post-process its SVG for gradient fills on links
-        Plotly.newPlot('chart', data, layout).then(gd => {
-            // Obtain the SVG element in the Plotly graph div
-            let svg = gd.querySelector('svg');
-            let defs = svg.querySelector('defs');
-            if (!defs) {
-                // Create <defs> if it doesn't exist
-                defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-                svg.insertBefore(defs, svg.firstChild);
-            }
-            
-            // Select all link path elements (ordered as in the data array)
-            const linkPaths = svg.querySelectorAll('.sankey-link path');
-            linkPaths.forEach((path, i) => {
-                if (i >= links.length) return; 
-                
-                // For each link get the corresponding source and target colors
-                const currentLink = links[i];
-                const sourceColor = nodeColorsArr[currentLink.source];
-                const targetColor = nodeColorsArr[currentLink.target];
-                
-                // Create a unique linearGradient id
-                const gradientId = "gradient" + i;
-                let linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-                linearGradient.setAttribute("id", gradientId);
-                linearGradient.setAttribute("gradientUnits", "userSpaceOnUse");
-                // Set a horizontal gradient direction (left-to-right)
-                linearGradient.setAttribute("x1", "0%");
-                linearGradient.setAttribute("y1", "0%");
-                linearGradient.setAttribute("x2", "100%");
-                linearGradient.setAttribute("y2", "0%");
-                
-                // Define gradient stops at 0% and 100%
-                let stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-                stop1.setAttribute("offset", "0%");
-                stop1.setAttribute("stop-color", sourceColor);
-                let stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-                stop2.setAttribute("offset", "100%");
-                stop2.setAttribute("stop-color", targetColor);
-                
-                linearGradient.appendChild(stop1);
-                linearGradient.appendChild(stop2);
-                defs.appendChild(linearGradient);
-                
-                // Update the current link's fill to the gradient
-                path.setAttribute("fill", `url(#${gradientId})`);
-            });
+        // Clear any existing chart content
+        const container = document.getElementById('chart');
+        container.innerHTML = "";
+        
+        // Set up dimensions (using the container's size)
+        const width = container.clientWidth;
+        const height = container.clientHeight || 600; // fallback height
+        
+        // Create an SVG element
+        const svg = d3.select(container)
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+        
+        // Set up the d3-sankey generator
+        const { sankey, sankeyLinkHorizontal } = d3.sankey;
+        const sankeyGenerator = sankey()
+            .nodeWidth(20)
+            .nodePadding(10)
+            .extent([[1, 1], [width - 1, height - 6]]);
+        
+        // Compute the Sankey layout
+        const sankeyGraph = sankeyGenerator(graph);
+        
+        // Define SVG defs for gradients
+        const defs = svg.append("defs");
+        sankeyGraph.links.forEach((d, i) => {
+            let gradientId = "gradient" + i;
+            let lg = defs.append("linearGradient")
+                .attr("id", gradientId)
+                .attr("gradientUnits", "userSpaceOnUse")
+                .attr("x1", d.source.x1)
+                .attr("y1", (d.y0 + d.y1) / 2)
+                .attr("x2", d.target.x0)
+                .attr("y2", (d.y0 + d.y1) / 2);
+            lg.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", d.source.color);
+            lg.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", d.target.color);
+            d.gradientId = gradientId;
         });
+        
+        // Draw links (paths) with gradient strokes
+        svg.append("g")
+            .attr("fill", "none")
+            .attr("stroke-opacity", 0.5)
+            .selectAll("path")
+            .data(sankeyGraph.links)
+            .enter().append("path")
+            .attr("d", sankeyLinkHorizontal())
+            .attr("stroke", d => `url(#${d.gradientId})`)
+            .attr("stroke-width", d => Math.max(1, d.width));
+        
+        // Draw nodes (rectangles)
+        const node = svg.append("g")
+            .selectAll("g")
+            .data(sankeyGraph.nodes)
+            .enter().append("g");
+        
+        node.append("rect")
+            .attr("x", d => d.x0)
+            .attr("y", d => d.y0)
+            .attr("height", d => d.y1 - d.y0)
+            .attr("width", d => d.x1 - d.x0)
+            .attr("fill", d => d.color)
+            .attr("stroke", "#000");
+        
+        // Add labels to nodes
+        node.append("text")
+            .attr("x", d => d.x0 - 6)
+            .attr("y", d => (d.y1 + d.y0) / 2)
+            .attr("dy", "0.35em")
+            .attr("text-anchor", "end")
+            .text(d => d.name)
+            .filter(d => d.x0 < width / 2)
+            .attr("x", d => d.x1 + 6)
+            .attr("text-anchor", "start");
         
         // Hide the extension title once the chart is displayed
         const extensionTitle = document.querySelector('h2');
         if (extensionTitle) {
             extensionTitle.style.display = 'none';
         }
-        
     } catch (error) {
-        console.error("Error rendering Sankey chart:", error);
+        console.error("Error rendering Sankey chart with D3:", error);
     }
 }
 
