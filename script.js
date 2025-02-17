@@ -28,13 +28,24 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('configSection').classList.remove('hidden');
     populateWorksheetDropdown();
   
+    // Create initial nodeColorSection if it doesn't exist
+    if (!document.getElementById('nodeColorSection')) {
+        const configSection = document.getElementById('configSection');
+        configSection.insertAdjacentHTML('beforeend', `
+            <div id="nodeColorSection">
+                <h3>Node Colors</h3>
+                <!-- Color inputs will be dynamically added here -->
+            </div>
+        `);
+    }
+  
     // When a worksheet is selected, populate the column mapping UI
-    document.getElementById('worksheetSelect').addEventListener('change', () => {
-      const worksheetName = document.getElementById('worksheetSelect').value;
-      if (worksheetName) {
-        document.getElementById('columnMapping').classList.remove('hidden');
-        populateColumnMapping();
-      }
+    document.getElementById('worksheetSelect').addEventListener('change', async () => {
+        const worksheetName = document.getElementById('worksheetSelect').value;
+        if (worksheetName) {
+            document.getElementById('columnMapping').classList.remove('hidden');
+            await populateColumnMapping(); // Wait for columns to populate
+        }
     });
   
     // Modify save configuration to include color settings
@@ -98,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetSelect = document.getElementById('targetSelect');
     const amountSelect = document.getElementById('amountSelect');
   
+    // Clear existing options
     sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
     targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
     amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
@@ -108,9 +120,18 @@ document.addEventListener('DOMContentLoaded', () => {
       amountSelect.add(new Option(col, col));
     });
 
-    // Add event listener to update color input labels when columns are selected
+    // Remove any existing event listeners (to prevent duplicates)
+    sourceSelect.removeEventListener('change', () => updateNodeColorLabels(dataTable));
+    targetSelect.removeEventListener('change', () => updateNodeColorLabels(dataTable));
+
+    // Add event listeners for color updates
     sourceSelect.addEventListener('change', () => updateNodeColorLabels(dataTable));
     targetSelect.addEventListener('change', () => updateNodeColorLabels(dataTable));
+
+    // If both source and target are already selected, update the color labels
+    if (sourceSelect.value && targetSelect.value) {
+        updateNodeColorLabels(dataTable);
+    }
   }
   
   function updateNodeColorLabels(dataTable) {
@@ -134,19 +155,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Create color input HTML with dynamic node labels
     const colorInputsHTML = nodeArray.map((nodeName, index) => `
-        <div>
+        <div class="color-input-container">
             <label for="node${index+1}Color">${nodeName} Color:</label>
             <input type="color" id="node${index+1}Color" value="${getDefaultColor(index)}">
         </div>
     `).join('');
 
-    // Remove existing color inputs and add new ones
+    // Update the nodeColorSection
     const nodeColorSection = document.getElementById('nodeColorSection');
     if (nodeColorSection) {
         nodeColorSection.innerHTML = `
             <h3>Node Colors</h3>
             ${colorInputsHTML}
         `;
+    } else {
+        console.error('nodeColorSection not found');
     }
   }
   
