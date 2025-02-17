@@ -1,530 +1,220 @@
 document.addEventListener('DOMContentLoaded', () => {
     tableau.extensions.initializeAsync().then(() => {
-        console.log("Tableau Extension Initialized");
-        // Check if configuration settings exist
-        const config = tableau.extensions.settings.get("sankeyConfig");
-        if (config) {
-            try {
-                const parsedConfig = JSON.parse(config);
-                // Hide the configuration UI if settings exist
-                document.getElementById('configSection').classList.add('hidden');
-                renderChart(parsedConfig);
-            } catch (e) {
-                console.error("Error parsing saved configuration, showing configuration UI.", e);
-                showConfigUI();
-            }
-        } else {
-            // No saved settings – show configuration UI
-            showConfigUI();
-        }
-    }).catch(error => {
-        console.error("Error during initialization:", error);
-    });
-
-    // Add explicit styles to the chart container
-    const chartContainer = document.getElementById('chart');
-    if (chartContainer) {
-        chartContainer.style.width = '100%';
-        chartContainer.style.minHeight = '400px';
-        chartContainer.style.border = '1px solid #ccc';
-    }
-});
-
-function showConfigUI() {
-    document.getElementById('configSection').classList.remove('hidden');
-    populateWorksheetDropdown();
-
-    // Event listener to update column mapping dropdowns when a new worksheet is selected
-    document.getElementById('worksheetSelect').addEventListener('change', async function (e) {
-        const worksheetName = e.target.value;
-        console.log("Worksheet selected:", worksheetName);
-        
-        const dashboard = tableau.extensions.dashboardContent.dashboard;
-        const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
-        if (!worksheet) {
-            console.error("Worksheet not found for:", worksheetName);
-            return;
-        }
-        
-        try {
-            // Get the full data schema instead of summary data
-            const dataTable = await worksheet.getDataSourcesAsync();
-            console.log("Data sources:", dataTable);
-            
-            // Get the fields from the primary data source
-            const fields = dataTable[0].fields;
-            console.log("Available fields:", fields);
-            
-            // Grab the dropdown elements for column mapping
-            const sourceSelect = document.getElementById('sourceSelect');
-            const targetSelect = document.getElementById('targetSelect');
-            const amountSelect = document.getElementById('amountSelect');
-            
-            // Clear any existing options and add a prompt option
-            sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
-            targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
-            amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
-            
-            // Populate each dropdown with the available fields
-            fields.forEach(field => {
-                const fieldName = field.name;
-                
-                const optSource = document.createElement('option');
-                optSource.value = fieldName;
-                optSource.text = fieldName;
-                
-                const optTarget = document.createElement('option');
-                optTarget.value = fieldName;
-                optTarget.text = fieldName;
-                
-                const optAmount = document.createElement('option');
-                optAmount.value = fieldName;
-                optAmount.text = fieldName;
-                
-                sourceSelect.appendChild(optSource.cloneNode(true));
-                targetSelect.appendChild(optTarget.cloneNode(true));
-                amountSelect.appendChild(optAmount.cloneNode(true));
-            });
-            
-            // Ensure the column mapping section is visible
-            document.getElementById('columnMapping').classList.remove('hidden');
-        } catch (error) {
-            console.error("Error fetching column data:", error);
-            console.log("Error details:", error.stack);
-        }
-    });
-    
-    // When source or target column selections change, update the node color pickers
-    document.getElementById('sourceSelect').addEventListener('change', updateNodeColorsMapping);
-    document.getElementById('targetSelect').addEventListener('change', updateNodeColorsMapping);
-    
-    // Save configuration when the button is clicked
-    document.getElementById('saveConfigBtn').addEventListener('click', async function() {
-        // Retrieve the worksheet selection and column mappings
-        const worksheetSelect = document.getElementById("worksheetSelect");
-        const sourceSelect = document.getElementById("sourceSelect");
-        const targetSelect = document.getElementById("targetSelect");
-        const amountSelect = document.getElementById("amountSelect");
-
-        const worksheetName = worksheetSelect.value;
-        const sourceCol = sourceSelect.value;
-        const targetCol = targetSelect.value;
-        const amountCol = amountSelect.value;
-
-        // Basic validation to ensure all selections are made
-        if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
-            console.error("Please make sure you have selected a worksheet and all three column values.");
-            return;
-        }
-
-        // Build the configuration object (extend with more properties if needed)
-        const config = {
-            worksheetName: worksheetName,
-            sourceCol: sourceCol,
-            targetCol: targetCol,
-            amountCol: amountCol,
-            // If your node color configuration is used, include it here.
-            // nodeColors: { ... }
-        };
-
-        // (Optional) Persist this configuration as needed with Tableau settings
-
-        // Optionally, hide or disable the configuration UI
-        document.getElementById("configSection").classList.add("hidden");
-
-        // Render the chart using the newly built configuration
-        await renderChart(config);
-    });
-}
-
-async function populateWorksheetDropdown() {
-    try {
-        const dashboard = tableau.extensions.dashboardContent.dashboard;
-        const worksheetSelect = document.getElementById('worksheetSelect');
-        // Clear any existing options (besides the placeholder)
-        worksheetSelect.innerHTML = '<option value="" disabled selected>Select Worksheet</option>';
-        dashboard.worksheets.forEach(ws => {
-            let option = document.createElement('option');
-            option.value = ws.name;
-            option.text = ws.name;
-            worksheetSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error("Error populating worksheets:", error);
-    }
-}
-
-async function populateColumnMapping() {
-    try {
-        const worksheetName = document.getElementById('worksheetSelect').value;
-        console.log("Selected worksheet:", worksheetName);
-        if (!worksheetName) return;
-        const dashboard = tableau.extensions.dashboardContent.dashboard;
-        const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
-        if (!worksheet) {
-            console.error("Worksheet not found");
-            return;
-        }
-        // Retrieve one row of summary data to obtain column headers
-        const options = { maxRows: 1, ignoreSelection: true };
-        const dataTable = await worksheet.getSummaryDataAsync(options);
-        const columns = dataTable.columns.map(col => col.fieldName);
-
-        // Populate the dropdowns for source, target, and amount
-        const sourceSelect = document.getElementById('sourceSelect');
-        const targetSelect = document.getElementById('targetSelect');
-        const amountSelect = document.getElementById('amountSelect');
-        
-        sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
-        targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
-        amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
-        
-        columns.forEach(col => {
-            const option1 = document.createElement('option');
-            option1.value = col;
-            option1.text = col;
-            sourceSelect.appendChild(option1);
-            
-            const option2 = document.createElement('option');
-            option2.value = col;
-            option2.text = col;
-            targetSelect.appendChild(option2);
-            
-            const option3 = document.createElement('option');
-            option3.value = col;
-            option3.text = col;
-            amountSelect.appendChild(option3);
-        });
-        
-        // Reveal the column mapping section
-        document.getElementById('columnMapping').classList.remove('hidden');
-    } catch (error) {
-        console.error("Error populating column mapping:", error);
-    }
-}
-
-/**
- * Updates the node color mapping UI by fetching all data from the selected worksheet,
- * computing the unique set of nodes from the selected source and target columns,
- * and creating a color picker for each.
- */
-async function updateNodeColorsMapping() {
-    const worksheetName = document.getElementById('worksheetSelect').value;
-    const sourceCol = document.getElementById('sourceSelect').value;
-    const targetCol = document.getElementById('targetSelect').value;
-    if (!worksheetName || !sourceCol || !targetCol) return;
-    try {
-        const dashboard = tableau.extensions.dashboardContent.dashboard;
-        const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
-        if (!worksheet) {
-            console.error("Worksheet not found");
-            return;
-        }
-        // Retrieve all summary data from the worksheet
-        const options = { maxRows: 1000000, ignoreSelection: true };
-        const dataTable = await worksheet.getSummaryDataAsync(options);
-        
-        // Find the column indices for the selected source and target columns
-        const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
-        const sourceIndex = columns.find(col => col.fieldName === sourceCol)?.index;
-        const targetIndex = columns.find(col => col.fieldName === targetCol)?.index;
-        if (sourceIndex === undefined || targetIndex === undefined) {
-            return;
-        }
-        
-        // Collect all unique nodes from both source and target columns
-        let nodeSet = new Set();
-        dataTable.data.forEach(row => {
-            const sourceValue = row[sourceIndex].formattedValue;
-            const targetValue = row[targetIndex].formattedValue;
-            nodeSet.add(sourceValue);
-            nodeSet.add(targetValue);
-        });
-        const nodes = Array.from(nodeSet);
-        
-        // Populate the nodeColorsMapping container with a color picker for each node
-        const nodeColorsMappingContainer = document.getElementById('nodeColorsMapping');
-        nodeColorsMappingContainer.innerHTML = '<p>Select Node Colors:</p>';
-        nodes.forEach(node => {
-            const label = document.createElement('label');
-            label.textContent = node + ": ";
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            // Set default to blue (#0000FF) – you can change this default if desired
-            colorInput.value = "#0000FF";
-            // Store the node name in a data attribute so we can retrieve it later
-            colorInput.dataset.nodeLabel = node;
-            nodeColorsMappingContainer.appendChild(label);
-            nodeColorsMappingContainer.appendChild(colorInput);
-            nodeColorsMappingContainer.appendChild(document.createElement('br'));
-        });
-        // Unhide the node colors section
-        nodeColorsMappingContainer.classList.remove('hidden');
-    } catch (error) {
-        console.error("Error updating node colors mapping:", error);
-    }
-}
-
-async function saveConfiguration() {
-    // Retrieve selected values from the UI
-    const worksheetName = document.getElementById('worksheetSelect').value;
-    const sourceCol = document.getElementById('sourceSelect').value;
-    const targetCol = document.getElementById('targetSelect').value;
-    const amountCol = document.getElementById('amountSelect').value;
-    
-    if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
-        alert("Please select a worksheet and map all three columns.");
-        return;
-    }
-    
-    // Retrieve node color selections from the UI
-    let nodeColors = {};
-    document.querySelectorAll('#nodeColorsMapping input[type="color"]').forEach(input => {
-        let nodeLabel = input.dataset.nodeLabel;
-        nodeColors[nodeLabel] = input.value;
-    });
-    
-    // Save the configuration using Tableau's settings API.
-    // Notice we removed chartWidth and chartHeight from config.
-    const config = { worksheetName, sourceCol, targetCol, amountCol, nodeColors };
-    tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
-    await tableau.extensions.settings.saveAsync();
-    
-    // Hide the configuration UI and render the chart
-    document.getElementById('configSection').classList.add('hidden');
-    renderChart(config);
-}
-
-// Updated function: subscribeToFilterChanges() remains unchanged
-function subscribeToFilterChanges(worksheet, config) {
-    worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
-        console.log('A filter has changed, updating chart...');
+      // If configuration was saved, use it; otherwise, show the config UI.
+      const configStr = tableau.extensions.settings.get("sankeyConfig");
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        document.getElementById('configSection').classList.add('hidden');
         renderChart(config);
+      } else {
+        showConfigUI();
+      }
+    }).catch(err => {
+      console.error("Error initializing extension:", err);
     });
-}
-
-// New function to subscribe to parameter changes
-function subscribeToParameterChanges(config) {
-    tableau.extensions.dashboardContent.dashboard.getParametersAsync().then(parameters => {
-        parameters.forEach(parameter => {
-            parameter.addEventListener(tableau.TableauEventType.ParameterChanged, () => {
-                console.log('A parameter has changed, updating chart...');
-                renderChart(config);
-            });
-        });
-    }).catch(error => {
-        console.error("Error subscribing to parameter changes:", error);
+  
+    // Redraw the chart on window resize
+    window.addEventListener('resize', () => {
+      const configStr = tableau.extensions.settings.get("sankeyConfig");
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        renderChart(config);
+      }
     });
-}
-
-// Modified renderChart function to include parameter change subscriptions
-async function renderChart(config) {
-    try {
-        console.log("Starting renderChart with config:", config);
-        
-        const dashboard = tableau.extensions.dashboardContent.dashboard;
-        const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
-        if (!worksheet) {
-            console.error("Worksheet not found for rendering chart.");
-            return;
-        }
-        
-        // Retrieve all summary data from the worksheet
-        const options = { maxRows: 1000000, ignoreSelection: true };
-        const dataTable = await worksheet.getSummaryDataAsync(options);
-        console.log("Retrieved data:", dataTable);
-        
-        // Check if we have any data
-        if (!dataTable.data || dataTable.data.length === 0) {
-            console.error("No data retrieved from worksheet");
-            return;
-        }
-        
-        // Subscribe to filter and parameter changes
-        subscribeToFilterChanges(worksheet, config);
-        subscribeToParameterChanges(config);
-        
-        // Build columns map and indices for source, target, and amount
-        const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
-        const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
-        const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
-        const amountIndex = columns.find(col => col.fieldName === config.amountCol)?.index;
-        if (sourceIndex === undefined || targetIndex === undefined || amountIndex === undefined) {
-            console.error("One or more selected columns not found in data.");
-            return;
-        }
-        
-        // Process data into flows for the Sankey diagram
-        let flows = {};
-        dataTable.data.forEach(row => {
-            const sourceValue = row[sourceIndex].formattedValue;
-            const targetValue = row[targetIndex].formattedValue;
-            const amountValue = parseFloat(row[amountIndex].value);
-            if (isNaN(amountValue) || amountValue === 0) return; // Skip invalid/zero flows
-            
-            const key = sourceValue + '||' + targetValue;
-            if (!flows[key]) {
-                flows[key] = { source: sourceValue, target: targetValue, amount: 0 };
-            }
-            flows[key].amount += amountValue;
-        });
-        
-        // Create a unique mapping of nodes
-        let nodeMap = {};
-        Object.values(flows).forEach(flow => {
-            if (!(flow.source in nodeMap)) {
-                nodeMap[flow.source] = Object.keys(nodeMap).length;
-            }
-            if (!(flow.target in nodeMap)) {
-                nodeMap[flow.target] = Object.keys(nodeMap).length;
-            }
-        });
-        
-        // Build links array referring to node indices
-        let links = [];
-        Object.values(flows).forEach(flow => {
-            links.push({
-                source: nodeMap[flow.source],
-                target: nodeMap[flow.target],
-                value: flow.amount
-            });
-        });
-        
-        // Compute node totals (choose the max of in-flow or out-flow)
-        const nodeLabels = Object.keys(nodeMap);
-        let inFlow = new Array(nodeLabels.length).fill(0);
-        let outFlow = new Array(nodeLabels.length).fill(0);
-        links.forEach(link => {
-            outFlow[link.source] += link.value;
-            inFlow[link.target] += link.value;
-        });
-        const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
-        const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
-        
-        // Create node colors using the configuration (default fallback to blue)
-        const nodeColorsArr = nodeLabels.map(label => {
-            return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
-        });
-        
-        // Prepare nodes array for d3-sankey
-        const sankeyNodes = nodeLabelsWithTotals.map((name, i) => ({
-            name: name,
-            color: nodeColorsArr[i]
-        }));
-        
-        // Prepare the graph object for d3-sankey
-        const graph = {
-            nodes: sankeyNodes,
-            links: links
-        };
-        
-        // Clear any existing chart content
-        const container = document.getElementById('chart');
-        if (!container) {
-            console.error("Chart container not found");
-            return;
-        }
-        container.innerHTML = "";
-        
-        // Set explicit dimensions
-        const width = Math.max(container.clientWidth, 600); // Minimum width of 600px
-        const height = Math.max(container.clientHeight, 400); // Minimum height of 400px
-        
-        console.log("Chart dimensions:", { width, height });
-        
-        // Create an SVG element with explicit dimensions
-        const svg = d3.select(container)
-            .append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .style("border", "1px solid #ccc"); // Added border for visibility during debugging
-        
-        // Set up the d3-sankey generator
-        const { sankey, sankeyLinkHorizontal } = d3.sankey;
-        const sankeyGenerator = sankey()
-            .nodeWidth(20)
-            .nodePadding(10)
-            .extent([[1, 1], [width - 1, height - 6]]);
-        
-        // Compute the Sankey layout
-        const sankeyGraph = sankeyGenerator(graph);
-        
-        // Define SVG defs for gradients
-        const defs = svg.append("defs");
-        sankeyGraph.links.forEach((d, i) => {
-            let gradientId = "gradient" + i;
-            let lg = defs.append("linearGradient")
-                .attr("id", gradientId)
-                .attr("gradientUnits", "userSpaceOnUse")
-                .attr("x1", d.source.x1)
-                .attr("y1", (d.y0 + d.y1) / 2)
-                .attr("x2", d.target.x0)
-                .attr("y2", (d.y0 + d.y1) / 2);
-            lg.append("stop")
-                .attr("offset", "0%")
-                .attr("stop-color", d.source.color);
-            lg.append("stop")
-                .attr("offset", "100%")
-                .attr("stop-color", d.target.color);
-            d.gradientId = gradientId;
-        });
-        
-        // Draw links (paths) with gradient strokes
-        svg.append("g")
-            .attr("fill", "none")
-            .attr("stroke-opacity", 0.5)
-            .selectAll("path")
-            .data(sankeyGraph.links)
-            .enter().append("path")
-            .attr("d", sankeyLinkHorizontal())
-            .attr("stroke", d => `url(#${d.gradientId})`)
-            .attr("stroke-width", d => Math.max(1, d.width));
-        
-        // Draw nodes (rectangles)
-        const node = svg.append("g")
-            .selectAll("g")
-            .data(sankeyGraph.nodes)
-            .enter().append("g");
-        
-        node.append("rect")
-            .attr("x", d => d.x0)
-            .attr("y", d => d.y0)
-            .attr("height", d => d.y1 - d.y0)
-            .attr("width", d => d.x1 - d.x0)
-            .attr("fill", d => d.color)
-            .attr("stroke", "#000");
-        
-        // Add labels to nodes
-        node.append("text")
-            .attr("x", d => d.x0 - 6)
-            .attr("y", d => (d.y1 + d.y0) / 2)
-            .attr("dy", "0.35em")
-            .attr("text-anchor", "end")
-            .text(d => d.name)
-            .filter(d => d.x0 < width / 2)
-            .attr("x", d => d.x1 + 6)
-            .attr("text-anchor", "start");
-        
-        // Hide the extension title once the chart is displayed
-        const extensionTitle = document.querySelector('h2');
-        if (extensionTitle) {
-            extensionTitle.style.display = 'none';
-        }
-    } catch (error) {
-        console.error("Error rendering Sankey chart with D3:", error);
-        // Display error message in the chart container
-        const container = document.getElementById('chart');
-        if (container) {
-            container.innerHTML = `<p style="color: red;">Error rendering chart: ${error.message}</p>`;
-        }
+  });
+  
+  function showConfigUI() {
+    populateWorksheetDropdown();
+  
+    // When the worksheet changes, populate the column mapping dropdowns
+    document.getElementById('worksheetSelect').addEventListener('change', async (e) => {
+      const worksheetName = e.target.value;
+      const dashboard = tableau.extensions.dashboardContent.dashboard;
+      const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
+      if (!worksheet) return;
+  
+      // Retrieve one row of summary data to get column names
+      const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
+      const columns = dataTable.columns.map(col => col.fieldName);
+  
+      // Populate each dropdown
+      const sourceSelect = document.getElementById('sourceSelect');
+      const targetSelect = document.getElementById('targetSelect');
+      const amountSelect = document.getElementById('amountSelect');
+  
+      sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
+      targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
+      amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
+  
+      columns.forEach(col => {
+        const option1 = document.createElement('option');
+        option1.value = col;
+        option1.text = col;
+        sourceSelect.appendChild(option1);
+  
+        const option2 = document.createElement('option');
+        option2.value = col;
+        option2.text = col;
+        targetSelect.appendChild(option2);
+  
+        const option3 = document.createElement('option');
+        option3.value = col;
+        option3.text = col;
+        amountSelect.appendChild(option3);
+      });
+  
+      // Show the column mapping section
+      document.getElementById('columnMapping').classList.remove('hidden');
+    });
+  
+    // Save configuration button handler
+    document.getElementById('saveConfigBtn').addEventListener('click', () => {
+      const worksheetName = document.getElementById('worksheetSelect').value;
+      const sourceCol = document.getElementById('sourceSelect').value;
+      const targetCol = document.getElementById('targetSelect').value;
+      const amountCol = document.getElementById('amountSelect').value;
+  
+      if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
+        alert("Please select a worksheet and map all columns.");
+        return;
+      }
+  
+      const config = { worksheetName, sourceCol, targetCol, amountCol };
+      tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
+      tableau.extensions.settings.saveAsync().then(() => {
+        document.getElementById('configSection').classList.add('hidden');
+        renderChart(config);
+      });
+    });
+  }
+  
+  function populateWorksheetDropdown() {
+    const dashboard = tableau.extensions.dashboardContent.dashboard;
+    const worksheetSelect = document.getElementById('worksheetSelect');
+    worksheetSelect.innerHTML = '<option value="" disabled selected>Select Worksheet</option>';
+    dashboard.worksheets.forEach(ws => {
+      const option = document.createElement('option');
+      option.value = ws.name;
+      option.text = ws.name;
+      worksheetSelect.appendChild(option);
+    });
+  }
+  
+  async function renderChart(config) {
+    const dashboard = tableau.extensions.dashboardContent.dashboard;
+    const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
+    if (!worksheet) {
+      console.error("Worksheet not found for rendering chart.");
+      return;
     }
-}
-
-// Dynamically update the chart when the window is resized
-window.addEventListener('resize', () => {
-    const configStr = tableau.extensions.settings.get("sankeyConfig");
-    if (configStr) {
-         const config = JSON.parse(configStr);
-         renderChart(config);
+  
+    // Retrieve summary data from the worksheet
+    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 100000, ignoreSelection: true });
+    const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
+  
+    // Get indices for the mapped columns
+    const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
+    const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
+    const amountIndex = columns.find(col => col.fieldName === config.amountCol)?.index;
+    if (sourceIndex === undefined || targetIndex === undefined || amountIndex === undefined) {
+      console.error("Column mapping error.");
+      return;
     }
-});
+  
+    // Process data to aggregate flows
+    const flows = {};
+    dataTable.data.forEach(row => {
+      const sourceVal = row[sourceIndex].formattedValue;
+      const targetVal = row[targetIndex].formattedValue;
+      const amount = parseFloat(row[amountIndex].value);
+      if (isNaN(amount) || amount === 0) return;
+      const key = sourceVal + '||' + targetVal;
+      if (!flows[key]) {
+        flows[key] = { source: sourceVal, target: targetVal, amount: 0 };
+      }
+      flows[key].amount += amount;
+    });
+  
+    // Create a unique list of nodes
+    const nodeMap = {};
+    Object.values(flows).forEach(flow => {
+      if (!(flow.source in nodeMap)) {
+        nodeMap[flow.source] = Object.keys(nodeMap).length;
+      }
+      if (!(flow.target in nodeMap)) {
+        nodeMap[flow.target] = Object.keys(nodeMap).length;
+      }
+    });
+  
+    // Build links array using node indices
+    const links = Object.values(flows).map(flow => ({
+      source: nodeMap[flow.source],
+      target: nodeMap[flow.target],
+      value: flow.amount
+    }));
+  
+    // Build nodes array
+    const nodes = Object.keys(nodeMap).map(label => ({ name: label }));
+  
+    // Prepare the graph for the Sankey layout
+    const graph = { nodes, links };
+  
+    // Clear any existing chart content
+    const container = document.getElementById('chart');
+    container.innerHTML = "";
+  
+    // Determine dimensions (minimum width 600, minimum height 400)
+    const width = Math.max(container.clientWidth, 600);
+    const height = Math.max(container.clientHeight, 400);
+  
+    // Create an SVG element
+    const svg = d3.select(container)
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height);
+  
+    // Set up the d3-sankey generator
+    const { sankey, sankeyLinkHorizontal } = d3.sankey;
+    const sankeyGenerator = sankey()
+      .nodeWidth(20)
+      .nodePadding(10)
+      .extent([[1, 1], [width - 1, height - 1]]);
+  
+    const sankeyGraph = sankeyGenerator(graph);
+  
+    // Draw links
+    svg.append("g")
+      .attr("fill", "none")
+      .attr("stroke", "#000")
+      .attr("stroke-opacity", 0.2)
+      .selectAll("path")
+      .data(sankeyGraph.links)
+      .enter().append("path")
+      .attr("d", sankeyLinkHorizontal())
+      .attr("stroke-width", d => Math.max(1, d.width));
+  
+    // Draw nodes
+    const node = svg.append("g")
+      .selectAll("g")
+      .data(sankeyGraph.nodes)
+      .enter().append("g");
+  
+    node.append("rect")
+      .attr("x", d => d.x0)
+      .attr("y", d => d.y0)
+      .attr("height", d => d.y1 - d.y0)
+      .attr("width", d => d.x1 - d.x0)
+      .attr("fill", "#4682B4")
+      .attr("stroke", "#000");
+  
+    // Add node labels
+    node.append("text")
+      .attr("x", d => d.x0 - 6)
+      .attr("y", d => (d.y0 + d.y1) / 2)
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(d => d.name)
+      .filter(d => d.x0 < width / 2)
+      .attr("x", d => d.x1 + 6)
+      .attr("text-anchor", "start");
+  }

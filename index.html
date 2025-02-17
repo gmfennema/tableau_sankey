@@ -8,14 +8,11 @@
   <!-- Load D3 and d3-sankey -->
   <script src="https://d3js.org/d3.v6.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
-  <!-- Ensure a minimum width of 600px -->
-  <!-- <meta name="viewport" content="width=1000, initial-scale=1"> -->
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 10px;
-      box-sizing: border-box;
     }
     .hidden {
       display: none;
@@ -23,33 +20,32 @@
     .config-section, .chart-section {
       margin-bottom: 20px;
     }
-    select, button, input {
+    select, button {
       font-size: 14px;
       padding: 8px;
       margin: 5px 0;
       min-width: 150px;
     }
     #chart {
-      min-width: 600px;
       width: 100%;
-      height: auto;
+      min-height: 400px;
+      border: 1px solid #ccc;
     }
   </style>
 </head>
 <body>
   <h2>Tableau Sankey Chart Extension</h2>
-  
-  <!-- Configuration Section (shown when settings have not yet been saved) -->
+
+  <!-- Configuration Section -->
   <div class="config-section" id="configSection">
-    <div id="worksheetConfig">
+    <div>
       <label for="worksheetSelect">Select Worksheet:</label>
       <select id="worksheetSelect">
         <option value="" disabled selected>Select Worksheet</option>
       </select>
     </div>
-    <!-- Column mapping UI – initially hidden -->
     <div id="columnMapping" class="hidden">
-      <p>Map columns to the following fields:</p>
+      <p>Map columns:</p>
       <label for="sourceSelect">Source:</label>
       <select id="sourceSelect">
         <option value="" disabled selected>Select Source Column</option>
@@ -65,20 +61,15 @@
         <option value="" disabled selected>Select Amount Column</option>
       </select>
       <br>
-      <!-- New container for node color pickers -->
-      <div id="nodeColorsMapping" class="hidden">
-        <!-- Node color pickers will be dynamically populated -->
-      </div>
       <button id="saveConfigBtn">Save Configuration</button>
     </div>
   </div>
-  
+
   <!-- Chart Section -->
   <div class="chart-section">
     <div id="chart"></div>
   </div>
-  
-  <!-- Application logic -->
+
   <script src="script.js"></script>
 </body>
 </html>
