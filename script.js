@@ -30,6 +30,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add worksheet change event listener
     const dashboard = tableau.extensions.dashboardContent.dashboard;
     dashboard.worksheets.forEach(worksheet => {
+      // Add data change event listener for automatic column updates
+      worksheet.addEventListener(tableau.TableauEventType.DataChanged, () => {
+        const worksheetSelect = document.getElementById('worksheetSelect');
+        if (worksheetSelect.value === worksheet.name) {
+          updateColumnSelections(worksheet);
+        }
+      });
+  
+      // Existing filter and selection change listeners
       worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
         const configStr = tableau.extensions.settings.get("sankeyConfig");
         if (configStr) {
@@ -46,45 +55,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   
-    // Attach an event listener for when the worksheet selection changes.
+    // Modify worksheet selection change handler
     document.getElementById('worksheetSelect').addEventListener('change', async (e) => {
       const worksheetName = e.target.value;
       const dashboard = tableau.extensions.dashboardContent.dashboard;
       const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
       if (!worksheet) return;
   
-      // Retrieve one row of summary data to get column names.
-      const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
-      const columns = dataTable.columns.map(col => col.fieldName);
-  
-      // Populate the dropdowns for source, target, and amount.
-      const sourceSelect = document.getElementById('sourceSelect');
-      const targetSelect = document.getElementById('targetSelect');
-      const amountSelect = document.getElementById('amountSelect');
-  
-      sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
-      targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
-      amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
-  
-      columns.forEach(col => {
-        const opt1 = document.createElement('option');
-        opt1.value = col;
-        opt1.text = col;
-        sourceSelect.appendChild(opt1);
-  
-        const opt2 = document.createElement('option');
-        opt2.value = col;
-        opt2.text = col;
-        targetSelect.appendChild(opt2);
-  
-        const opt3 = document.createElement('option');
-        opt3.value = col;
-        opt3.text = col;
-        amountSelect.appendChild(opt3);
-      });
-  
-      // Unhide the column mapping section.
-      document.getElementById('columnMapping').classList.remove('hidden');
+      updateColumnSelections(worksheet);
     });
   
     // Save configuration when the "Save Configuration" button is clicked.
@@ -118,6 +96,51 @@ document.addEventListener('DOMContentLoaded', () => {
       option.text = ws.name;
       wsSelect.appendChild(option);
     });
+  }
+  
+  // New helper function to update column selections
+  async function updateColumnSelections(worksheet) {
+    // Retrieve one row of summary data to get column names.
+    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
+    const columns = dataTable.columns.map(col => col.fieldName);
+  
+    // Populate the dropdowns for source, target, and amount.
+    const sourceSelect = document.getElementById('sourceSelect');
+    const targetSelect = document.getElementById('targetSelect');
+    const amountSelect = document.getElementById('amountSelect');
+  
+    // Store current selections
+    const currentSource = sourceSelect.value;
+    const currentTarget = targetSelect.value;
+    const currentAmount = amountSelect.value;
+  
+    // Clear and repopulate dropdowns
+    sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
+    targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
+    amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
+  
+    columns.forEach(col => {
+      const opt1 = document.createElement('option');
+      opt1.value = col;
+      opt1.text = col;
+      if (col === currentSource) opt1.selected = true;
+      sourceSelect.appendChild(opt1);
+  
+      const opt2 = document.createElement('option');
+      opt2.value = col;
+      opt2.text = col;
+      if (col === currentTarget) opt2.selected = true;
+      targetSelect.appendChild(opt2);
+  
+      const opt3 = document.createElement('option');
+      opt3.value = col;
+      opt3.text = col;
+      if (col === currentAmount) opt3.selected = true;
+      amountSelect.appendChild(opt3);
+    });
+  
+    // Unhide the column mapping section.
+    document.getElementById('columnMapping').classList.remove('hidden');
   }
   
   async function renderChart(config) {

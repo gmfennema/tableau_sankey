@@ -28,12 +28,20 @@
     }
     #chart {
       width: 100%;
-      height: 100vh;
+      height: calc(100vh - 200px);
       overflow: hidden;
+      position: relative;
     }
     #chart svg {
       width: 100%;
       height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .chart-section {
+      height: calc(100vh - 200px);
+      overflow: hidden;
     }
   </style>
 </head>
