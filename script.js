@@ -37,34 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   
-    // Add color inputs to the configuration UI
-    const colorInputsHTML = `
-        <div id="nodeColorSection">
-            <h3>Node Colors</h3>
-            <div>
-                <label for="node1Color">1st Node Color:</label>
-                <input type="color" id="node1Color" value="#777777">
-            </div>
-            <div>
-                <label for="node2Color">2nd Node Color:</label>
-                <input type="color" id="node2Color" value="#00999F">
-            </div>
-            <div>
-                <label for="node3Color">3rd Node Color:</label>
-                <input type="color" id="node3Color" value="#DDA60B">
-            </div>
-            <div>
-                <label for="node4Color">4th Node Color:</label>
-                <input type="color" id="node4Color" value="#924390">
-            </div>
-        </div>
-    `;
-    
-    // Insert color inputs into the configuration section
-    const configSection = document.getElementById('configSection');
-    const saveConfigBtn = document.getElementById('saveConfigBtn');
-    saveConfigBtn.insertAdjacentHTML('beforebegin', colorInputsHTML);
-
     // Modify save configuration to include color settings
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
         const worksheetName = document.getElementById('worksheetSelect').value;
@@ -119,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (!worksheet) return;
   
-    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 100000, ignoreSelection: true });
     const columns = dataTable.columns.map(col => col.fieldName);
   
     const sourceSelect = document.getElementById('sourceSelect');
@@ -135,6 +107,57 @@ document.addEventListener('DOMContentLoaded', () => {
       targetSelect.add(new Option(col, col));
       amountSelect.add(new Option(col, col));
     });
+
+    // Add event listener to update color input labels when columns are selected
+    sourceSelect.addEventListener('change', () => updateNodeColorLabels(dataTable));
+    targetSelect.addEventListener('change', () => updateNodeColorLabels(dataTable));
+  }
+  
+  function updateNodeColorLabels(dataTable) {
+    const sourceCol = document.getElementById('sourceSelect').value;
+    const targetCol = document.getElementById('targetSelect').value;
+
+    if (!sourceCol || !targetCol) return;
+
+    // Extract unique nodes from source and target columns
+    const sourceIndex = dataTable.columns.findIndex(col => col.fieldName === sourceCol);
+    const targetIndex = dataTable.columns.findIndex(col => col.fieldName === targetCol);
+
+    const uniqueNodes = new Set(
+        dataTable.data.flatMap(row => [
+            row[sourceIndex].formattedValue, 
+            row[targetIndex].formattedValue
+        ])
+    );
+
+    const nodeArray = Array.from(uniqueNodes).slice(0, 4);
+
+    // Create color input HTML with dynamic node labels
+    const colorInputsHTML = nodeArray.map((nodeName, index) => `
+        <div>
+            <label for="node${index+1}Color">${nodeName} Color:</label>
+            <input type="color" id="node${index+1}Color" value="${getDefaultColor(index)}">
+        </div>
+    `).join('');
+
+    // Remove existing color inputs and add new ones
+    const nodeColorSection = document.getElementById('nodeColorSection');
+    if (nodeColorSection) {
+        nodeColorSection.innerHTML = `
+            <h3>Node Colors</h3>
+            ${colorInputsHTML}
+        `;
+    }
+  }
+  
+  function getDefaultColor(index) {
+    const defaultColors = [
+        '#777777', 
+        '#00999F', 
+        '#DDA60B', 
+        '#924390'
+    ];
+    return defaultColors[index] || '#4682B4';
   }
   
   async function renderChart(config) {
@@ -232,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
       // Use default colors if not provided in config
       const defaultColors = [
-          '#777777', 
+          '#777777',
           '#00999F', 
           '#DDA60B', 
           '#924390'
