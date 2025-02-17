@@ -180,12 +180,12 @@ document.addEventListener('DOMContentLoaded', () => {
         .attr("width", width)
         .attr("height", height);
   
-      // Use d3Sankey instead of d3.sankey.
-      const sankeyGenerator = d3Sankey.sankeyGraph()
+      // Use d3.sankey instead of d3Sankey
+      const sankeyGenerator = d3.sankey()
         .nodeWidth(20)
         .nodePadding(10)
         .extent([[1, 1], [width - 1, height - 1]]);
-      const sankeyLinkHorizontal = d3Sankey.sankeyLinkHorizontal;
+      const sankeyLinkHorizontal = d3.sankeyLinkHorizontal;
   
       // Compute the Sankey layout.
       const sankeyGraph = sankeyGenerator(graph);
