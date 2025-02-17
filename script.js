@@ -60,8 +60,8 @@ async function populateWorksheetDropdown() {
 
 async function populateColumnMapping() {
     try {
-        // Get the selected worksheet name
         const worksheetName = document.getElementById('worksheetSelect').value;
+        console.log("Selected worksheet:", worksheetName);
         if (!worksheetName) return;
         const dashboard = tableau.extensions.dashboardContent.dashboard;
         const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
