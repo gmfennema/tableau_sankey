@@ -62,7 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
       if (!worksheet) return;
   
-      updateColumnSelections(worksheet);
+      // Show the column mapping section first
+      document.getElementById('columnMapping').classList.remove('hidden');
+      
+      // Then update the column selections
+      try {
+        await updateColumnSelections(worksheet);
+      } catch (error) {
+        console.error("Error updating column selections:", error);
+        alert("Error loading columns. Please try again.");
+      }
     });
   
     // Save configuration when the "Save Configuration" button is clicked.
