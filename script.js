@@ -27,6 +27,25 @@ document.addEventListener('DOMContentLoaded', () => {
   function showConfigUI() {
     populateWorksheetDropdown();
   
+    // Add worksheet change event listener
+    const dashboard = tableau.extensions.dashboardContent.dashboard;
+    dashboard.worksheets.forEach(worksheet => {
+      worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
+        const configStr = tableau.extensions.settings.get("sankeyConfig");
+        if (configStr) {
+          const config = JSON.parse(configStr);
+          renderChart(config);
+        }
+      });
+      worksheet.addEventListener(tableau.TableauEventType.MarkSelectionChanged, () => {
+        const configStr = tableau.extensions.settings.get("sankeyConfig");
+        if (configStr) {
+          const config = JSON.parse(configStr);
+          renderChart(config);
+        }
+      });
+    });
+  
     // Attach an event listener for when the worksheet selection changes.
     document.getElementById('worksheetSelect').addEventListener('change', async (e) => {
       const worksheetName = e.target.value;
@@ -166,19 +185,23 @@ document.addEventListener('DOMContentLoaded', () => {
       // Prepare the graph for the Sankey layout.
       const graph = { nodes, links };
   
-      // Clear any existing chart content.
+      // Update container sizing
       const container = document.getElementById('chart');
+      container.style.width = '100%';
+      container.style.height = '100%';
       container.innerHTML = "";
   
-      // Determine dimensions (minimum width 600, minimum height 400).
-      const width = Math.max(container.clientWidth, 600);
-      const height = Math.max(container.clientHeight, 400);
+      // Get the actual dimensions from the container
+      const width = container.clientWidth;
+      const height = container.clientHeight;
   
-      // Create an SVG element.
+      // Create an SVG element that fills the container
       const svg = d3.select(container)
         .append("svg")
-        .attr("width", width)
-        .attr("height", height);
+        .attr("width", '100%')
+        .attr("height", '100%')
+        .attr("viewBox", `0 0 ${width} ${height}`)
+        .attr("preserveAspectRatio", "xMinYMin");
   
       // Use d3.sankey instead of d3Sankey
       const sankeyGenerator = d3.sankey()
