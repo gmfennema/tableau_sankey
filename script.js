@@ -25,62 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   function showConfigUI() {
+    document.getElementById('configSection').classList.remove('hidden');
     populateWorksheetDropdown();
   
-    // Add worksheet change event listener
-    const dashboard = tableau.extensions.dashboardContent.dashboard;
-    dashboard.worksheets.forEach(worksheet => {
-      // Add data change event listener for automatic column updates
-      worksheet.addEventListener(tableau.TableauEventType.DataChanged, () => {
-        const worksheetSelect = document.getElementById('worksheetSelect');
-        if (worksheetSelect.value === worksheet.name) {
-          updateColumnSelections(worksheet);
-        }
-      });
-  
-      // Existing filter and selection change listeners
-      worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
-        const configStr = tableau.extensions.settings.get("sankeyConfig");
-        if (configStr) {
-          const config = JSON.parse(configStr);
-          renderChart(config);
-        }
-      });
-      worksheet.addEventListener(tableau.TableauEventType.MarkSelectionChanged, () => {
-        const configStr = tableau.extensions.settings.get("sankeyConfig");
-        if (configStr) {
-          const config = JSON.parse(configStr);
-          renderChart(config);
-        }
-      });
-    });
-  
-    // Modify worksheet selection change handler
-    document.getElementById('worksheetSelect').addEventListener('change', async (e) => {
-      const worksheetName = e.target.value;
-      console.log("Selected worksheet:", worksheetName);
-      
-      const dashboard = tableau.extensions.dashboardContent.dashboard;
-      const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
-      if (!worksheet) {
-        console.error("Worksheet not found");
-        return;
-      }
-      console.log("Found worksheet:", worksheet);
-  
-      // Show the column mapping section first
-      document.getElementById('columnMapping').classList.remove('hidden');
-      
-      // Then update the column selections
-      try {
-        await updateColumnSelections(worksheet);
-      } catch (error) {
-        console.error("Error updating column selections:", error);
-        alert("Error loading columns. Please try again.");
+    // When a worksheet is selected, populate the column mapping UI
+    document.getElementById('worksheetSelect').addEventListener('change', () => {
+      const worksheetName = document.getElementById('worksheetSelect').value;
+      if (worksheetName) {
+        document.getElementById('columnMapping').classList.remove('hidden');
+        populateColumnMapping();
       }
     });
   
-    // Save configuration when the "Save Configuration" button is clicked.
+    // Save configuration when the button is clicked
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
       const worksheetName = document.getElementById('worksheetSelect').value;
       const sourceCol = document.getElementById('sourceSelect').value;
@@ -113,56 +70,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Update the updateColumnSelections function with more logging
-  async function updateColumnSelections(worksheet) {
-    console.log("Starting column selection update");
+  async function populateColumnMapping() {
+    const worksheetName = document.getElementById('worksheetSelect').value;
+    const dashboard = tableau.extensions.dashboardContent.dashboard;
+    const worksheet = dashboard.worksheets.find(ws => ws.name === worksheetName);
     
-    // Retrieve one row of summary data to get column names.
-    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-    console.log("Retrieved data table:", dataTable);
-    
-    const columns = dataTable.columns.map(col => col.fieldName);
-    console.log("Available columns:", columns);
+    if (!worksheet) return;
   
-    // Populate the dropdowns for source, target, and amount.
+    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+    const columns = dataTable.columns.map(col => col.fieldName);
+  
     const sourceSelect = document.getElementById('sourceSelect');
     const targetSelect = document.getElementById('targetSelect');
     const amountSelect = document.getElementById('amountSelect');
   
-    // Store current selections
-    const currentSource = sourceSelect.value;
-    const currentTarget = targetSelect.value;
-    const currentAmount = amountSelect.value;
-  
-    // Clear and repopulate dropdowns
     sourceSelect.innerHTML = '<option value="" disabled selected>Select Source Column</option>';
     targetSelect.innerHTML = '<option value="" disabled selected>Select Target Column</option>';
     amountSelect.innerHTML = '<option value="" disabled selected>Select Amount Column</option>';
   
     columns.forEach(col => {
-      const opt1 = document.createElement('option');
-      opt1.value = col;
-      opt1.text = col;
-      if (col === currentSource) opt1.selected = true;
-      sourceSelect.appendChild(opt1);
-  
-      const opt2 = document.createElement('option');
-      opt2.value = col;
-      opt2.text = col;
-      if (col === currentTarget) opt2.selected = true;
-      targetSelect.appendChild(opt2);
-  
-      const opt3 = document.createElement('option');
-      opt3.value = col;
-      opt3.text = col;
-      if (col === currentAmount) opt3.selected = true;
-      amountSelect.appendChild(opt3);
+      sourceSelect.add(new Option(col, col));
+      targetSelect.add(new Option(col, col));
+      amountSelect.add(new Option(col, col));
     });
-  
-    console.log("Finished populating dropdowns");
-    
-    // Unhide the column mapping section.
-    document.getElementById('columnMapping').classList.remove('hidden');
   }
   
   async function renderChart(config) {
