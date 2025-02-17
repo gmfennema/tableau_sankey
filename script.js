@@ -37,24 +37,66 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   
-    // Save configuration when the button is clicked
+    // Add color inputs to the configuration UI
+    const colorInputsHTML = `
+        <div id="nodeColorSection">
+            <h3>Node Colors</h3>
+            <div>
+                <label for="node1Color">1st Node Color:</label>
+                <input type="color" id="node1Color" value="#777777">
+            </div>
+            <div>
+                <label for="node2Color">2nd Node Color:</label>
+                <input type="color" id="node2Color" value="#00999F">
+            </div>
+            <div>
+                <label for="node3Color">3rd Node Color:</label>
+                <input type="color" id="node3Color" value="#DDA60B">
+            </div>
+            <div>
+                <label for="node4Color">4th Node Color:</label>
+                <input type="color" id="node4Color" value="#924390">
+            </div>
+        </div>
+    `;
+    
+    // Insert color inputs into the configuration section
+    const configSection = document.getElementById('configSection');
+    const saveConfigBtn = document.getElementById('saveConfigBtn');
+    saveConfigBtn.insertAdjacentHTML('beforebegin', colorInputsHTML);
+
+    // Modify save configuration to include color settings
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
-      const worksheetName = document.getElementById('worksheetSelect').value;
-      const sourceCol = document.getElementById('sourceSelect').value;
-      const targetCol = document.getElementById('targetSelect').value;
-      const amountCol = document.getElementById('amountSelect').value;
-  
-      if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
-        alert("Please select a worksheet and map all columns.");
-        return;
-      }
-  
-      const config = { worksheetName, sourceCol, targetCol, amountCol };
-      tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
-      tableau.extensions.settings.saveAsync().then(() => {
-        document.getElementById('configSection').classList.add('hidden');
-        renderChart(config);
-      });
+        const worksheetName = document.getElementById('worksheetSelect').value;
+        const sourceCol = document.getElementById('sourceSelect').value;
+        const targetCol = document.getElementById('targetSelect').value;
+        const amountCol = document.getElementById('amountSelect').value;
+
+        // Collect color settings
+        const nodeColors = [
+            document.getElementById('node1Color').value,
+            document.getElementById('node2Color').value,
+            document.getElementById('node3Color').value,
+            document.getElementById('node4Color').value
+        ];
+
+        if (!worksheetName || !sourceCol || !targetCol || !amountCol) {
+            alert("Please select a worksheet and map all columns.");
+            return;
+        }
+
+        const config = { 
+            worksheetName, 
+            sourceCol, 
+            targetCol, 
+            amountCol,
+            nodeColors 
+        };
+        tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
+        tableau.extensions.settings.saveAsync().then(() => {
+            document.getElementById('configSection').classList.add('hidden');
+            renderChart(config);
+        });
     });
   }
   
@@ -188,18 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
       // Compute the Sankey layout.
       const sankeyGraph = sankeyGenerator(graph);
   
-      // Draw links.
-      svg.append("g")
-        .attr("fill", "none")
-        .attr("stroke", "#000")
-        .attr("stroke-opacity", 0.2)
-        .selectAll("path")
-        .data(sankeyGraph.links)
-        .enter().append("path")
-        .attr("d", sankeyLinkHorizontal())
-        .attr("stroke-width", d => Math.max(1, d.width));
+      // Use default colors if not provided in config
+      const defaultColors = [
+          '#777777', 
+          '#00999F', 
+          '#DDA60B', 
+          '#924390'
+      ];
+      const nodeColors = config.nodeColors || defaultColors;
   
-      // Draw nodes.
+      // Draw nodes with custom colors
       const node = svg.append("g")
         .selectAll("g")
         .data(sankeyGraph.nodes)
@@ -210,8 +250,23 @@ document.addEventListener('DOMContentLoaded', () => {
         .attr("y", d => d.y0)
         .attr("height", d => d.y1 - d.y0)
         .attr("width", d => d.x1 - d.x0)
-        .attr("fill", "#4682B4")
+        .attr("fill", (d, i) => nodeColors[i % nodeColors.length] || '#4682B4')
         .attr("stroke", "#000");
+  
+      // Draw links with node-specific colors and reduced opacity
+      svg.append("g")
+        .attr("fill", "none")
+        .attr("stroke-opacity", 0.5)
+        .selectAll("path")
+        .data(sankeyGraph.links)
+        .enter().append("path")
+        .attr("d", sankeyLinkHorizontal())
+        .attr("stroke", d => {
+            // Use the color of the source node with 50% opacity
+            const sourceColor = nodeColors[d.source.index % nodeColors.length] || '#4682B4';
+            return sourceColor;
+        })
+        .attr("stroke-width", d => Math.max(1, d.width));
   
       // Add node labels.
       node.append("text")
