@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .attr("height", height);
   
       // Use d3Sankey instead of d3.sankey.
-      const sankeyGenerator = d3Sankey.sankey()
+      const sankeyGenerator = d3Sankey.sankeyGraph()
         .nodeWidth(20)
         .nodePadding(10)
         .extent([[1, 1], [width - 1, height - 1]]);
