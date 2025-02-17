@@ -101,120 +101,147 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   async function renderChart(config) {
-    const dashboard = tableau.extensions.dashboardContent.dashboard;
-    const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
-    if (!worksheet) {
-      console.error("Worksheet not found for rendering chart.");
-      return;
+    try {
+      console.log("renderChart called with config:", config);
+  
+      const dashboard = tableau.extensions.dashboardContent.dashboard;
+      const worksheet = dashboard.worksheets.find(ws => ws.name === config.worksheetName);
+      if (!worksheet) {
+        console.error("Worksheet not found for rendering chart.");
+        return;
+      }
+  
+      // Retrieve summary data from the worksheet
+      const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 100000, ignoreSelection: true });
+      console.log("Data table retrieved:", dataTable);
+  
+      if (!dataTable.data || dataTable.data.length === 0) {
+        console.error("No data returned from worksheet.");
+        return;
+      }
+  
+      const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
+      const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
+      const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
+      const amountIndex = columns.find(col => col.fieldName === config.amountCol)?.index;
+      if (sourceIndex === undefined || targetIndex === undefined || amountIndex === undefined) {
+        console.error("Column mapping error. Please verify your column selections.");
+        return;
+      }
+      console.log("Column indices:", { sourceIndex, targetIndex, amountIndex });
+  
+      // Process data to aggregate flows
+      const flows = {};
+      dataTable.data.forEach(row => {
+        const sourceVal = row[sourceIndex].formattedValue;
+        const targetVal = row[targetIndex].formattedValue;
+        const amount = parseFloat(row[amountIndex].value);
+        if (isNaN(amount) || amount === 0) return;
+        const key = sourceVal + '||' + targetVal;
+        if (!flows[key]) {
+          flows[key] = { source: sourceVal, target: targetVal, amount: 0 };
+        }
+        flows[key].amount += amount;
+      });
+      console.log("Flows computed:", flows);
+  
+      // If no flows are computed, log a message
+      if (Object.keys(flows).length === 0) {
+        console.error("No valid flows found. Verify that your 'Amount' column contains valid numbers.");
+        return;
+      }
+  
+      // Create unique list of nodes
+      const nodeMap = {};
+      Object.values(flows).forEach(flow => {
+        if (!(flow.source in nodeMap)) {
+          nodeMap[flow.source] = Object.keys(nodeMap).length;
+        }
+        if (!(flow.target in nodeMap)) {
+          nodeMap[flow.target] = Object.keys(nodeMap).length;
+        }
+      });
+      console.log("Node mapping:", nodeMap);
+  
+      // Build links array
+      const links = Object.values(flows).map(flow => ({
+        source: nodeMap[flow.source],
+        target: nodeMap[flow.target],
+        value: flow.amount
+      }));
+  
+      // Build nodes array
+      const nodes = Object.keys(nodeMap).map(label => ({ name: label }));
+  
+      // Prepare the graph for the Sankey layout
+      const graph = { nodes, links };
+      console.log("Graph object:", graph);
+  
+      // Clear any existing chart content
+      const container = document.getElementById('chart');
+      container.innerHTML = "";
+  
+      // Determine dimensions (minimum width 600, minimum height 400)
+      const width = Math.max(container.clientWidth, 600);
+      const height = Math.max(container.clientHeight, 400);
+      console.log("Chart dimensions:", { width, height });
+  
+      // Create an SVG element
+      const svg = d3.select(container)
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+  
+      // Set up the d3-sankey generator
+      const { sankey, sankeyLinkHorizontal } = d3.sankey;
+      const sankeyGenerator = sankey()
+        .nodeWidth(20)
+        .nodePadding(10)
+        .extent([[1, 1], [width - 1, height - 1]]);
+  
+      const sankeyGraph = sankeyGenerator(graph);
+      console.log("Sankey layout computed:", sankeyGraph);
+  
+      // Draw links
+      svg.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "#000")
+        .attr("stroke-opacity", 0.2)
+        .selectAll("path")
+        .data(sankeyGraph.links)
+        .enter().append("path")
+        .attr("d", sankeyLinkHorizontal())
+        .attr("stroke-width", d => Math.max(1, d.width));
+  
+      // Draw nodes
+      const node = svg.append("g")
+        .selectAll("g")
+        .data(sankeyGraph.nodes)
+        .enter().append("g");
+  
+      node.append("rect")
+        .attr("x", d => d.x0)
+        .attr("y", d => d.y0)
+        .attr("height", d => d.y1 - d.y0)
+        .attr("width", d => d.x1 - d.x0)
+        .attr("fill", "#4682B4")
+        .attr("stroke", "#000");
+  
+      // Add node labels
+      node.append("text")
+        .attr("x", d => d.x0 - 6)
+        .attr("y", d => (d.y0 + d.y1) / 2)
+        .attr("dy", "0.35em")
+        .attr("text-anchor", "end")
+        .text(d => d.name)
+        .filter(d => d.x0 < width / 2)
+        .attr("x", d => d.x1 + 6)
+        .attr("text-anchor", "start");
+  
+      console.log("Chart rendering complete.");
+    } catch (error) {
+      console.error("Error rendering Sankey chart:", error);
+      const container = document.getElementById('chart');
+      container.innerHTML = `<p style="color: red;">Error rendering chart: ${error.message}</p>`;
     }
-  
-    // Retrieve summary data from the worksheet
-    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 100000, ignoreSelection: true });
-    const columns = dataTable.columns.map((col, index) => ({ fieldName: col.fieldName, index }));
-  
-    // Get indices for the mapped columns
-    const sourceIndex = columns.find(col => col.fieldName === config.sourceCol)?.index;
-    const targetIndex = columns.find(col => col.fieldName === config.targetCol)?.index;
-    const amountIndex = columns.find(col => col.fieldName === config.amountCol)?.index;
-    if (sourceIndex === undefined || targetIndex === undefined || amountIndex === undefined) {
-      console.error("Column mapping error.");
-      return;
-    }
-  
-    // Process data to aggregate flows
-    const flows = {};
-    dataTable.data.forEach(row => {
-      const sourceVal = row[sourceIndex].formattedValue;
-      const targetVal = row[targetIndex].formattedValue;
-      const amount = parseFloat(row[amountIndex].value);
-      if (isNaN(amount) || amount === 0) return;
-      const key = sourceVal + '||' + targetVal;
-      if (!flows[key]) {
-        flows[key] = { source: sourceVal, target: targetVal, amount: 0 };
-      }
-      flows[key].amount += amount;
-    });
-  
-    // Create a unique list of nodes
-    const nodeMap = {};
-    Object.values(flows).forEach(flow => {
-      if (!(flow.source in nodeMap)) {
-        nodeMap[flow.source] = Object.keys(nodeMap).length;
-      }
-      if (!(flow.target in nodeMap)) {
-        nodeMap[flow.target] = Object.keys(nodeMap).length;
-      }
-    });
-  
-    // Build links array using node indices
-    const links = Object.values(flows).map(flow => ({
-      source: nodeMap[flow.source],
-      target: nodeMap[flow.target],
-      value: flow.amount
-    }));
-  
-    // Build nodes array
-    const nodes = Object.keys(nodeMap).map(label => ({ name: label }));
-  
-    // Prepare the graph for the Sankey layout
-    const graph = { nodes, links };
-  
-    // Clear any existing chart content
-    const container = document.getElementById('chart');
-    container.innerHTML = "";
-  
-    // Determine dimensions (minimum width 600, minimum height 400)
-    const width = Math.max(container.clientWidth, 600);
-    const height = Math.max(container.clientHeight, 400);
-  
-    // Create an SVG element
-    const svg = d3.select(container)
-      .append("svg")
-      .attr("width", width)
-      .attr("height", height);
-  
-    // Set up the d3-sankey generator
-    const { sankey, sankeyLinkHorizontal } = d3.sankey;
-    const sankeyGenerator = sankey()
-      .nodeWidth(20)
-      .nodePadding(10)
-      .extent([[1, 1], [width - 1, height - 1]]);
-  
-    const sankeyGraph = sankeyGenerator(graph);
-  
-    // Draw links
-    svg.append("g")
-      .attr("fill", "none")
-      .attr("stroke", "#000")
-      .attr("stroke-opacity", 0.2)
-      .selectAll("path")
-      .data(sankeyGraph.links)
-      .enter().append("path")
-      .attr("d", sankeyLinkHorizontal())
-      .attr("stroke-width", d => Math.max(1, d.width));
-  
-    // Draw nodes
-    const node = svg.append("g")
-      .selectAll("g")
-      .data(sankeyGraph.nodes)
-      .enter().append("g");
-  
-    node.append("rect")
-      .attr("x", d => d.x0)
-      .attr("y", d => d.y0)
-      .attr("height", d => d.y1 - d.y0)
-      .attr("width", d => d.x1 - d.x0)
-      .attr("fill", "#4682B4")
-      .attr("stroke", "#000");
-  
-    // Add node labels
-    node.append("text")
-      .attr("x", d => d.x0 - 6)
-      .attr("y", d => (d.y0 + d.y1) / 2)
-      .attr("dy", "0.35em")
-      .attr("text-anchor", "end")
-      .text(d => d.name)
-      .filter(d => d.x0 < width / 2)
-      .attr("x", d => d.x1 + 6)
-      .attr("text-anchor", "start");
   }
