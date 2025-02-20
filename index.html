@@ -15,13 +15,14 @@
       margin: 0;
       padding: 10px;
       box-sizing: border-box;
-      background-color: transparent;
+      background-color: transparent !important;
     }
     .hidden {
       display: none;
     }
     .config-section, .chart-section {
       margin-bottom: 20px;
+      background-color: transparent;
     }
     select, button, input {
       font-size: 14px;
@@ -33,7 +34,17 @@
       min-width: 600px;
       width: 100%;
       height: auto;
-      background-color: transparent;
+      background-color: transparent !important;
+    }
+    /* Add these new styles */
+    .plotly-container {
+      background-color: transparent !important;
+    }
+    .js-plotly-plot {
+      background-color: transparent !important;
+    }
+    .plot-container {
+      background-color: transparent !important;
     }
   </style>
 </head>
