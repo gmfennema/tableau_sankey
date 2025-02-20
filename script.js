@@ -337,23 +337,12 @@ async function renderChart(config) {
           font: { size: 10 },
           width: chartContainer.clientWidth,
           height: chartContainer.clientHeight,
-          paper_bgcolor: 'rgba(0,0,0,0)',
-          plot_bgcolor: 'rgba(0,0,0,0)',
-          margin: {
-              l: 50,
-              r: 50,
-              t: 50,
-              b: 50
-          }
-      };
-      
-      const config = {
-          displayModeBar: false,  // Optional: removes the plotly toolbar
-          responsive: true
+          paper_bgcolor: 'rgba(0,0,0,0)',  // Make plot background transparent
+          plot_bgcolor: 'rgba(0,0,0,0)'    // Make plotting area transparent
       };
       
       // Render the chart and then post-process its SVG for gradient fills on links
-      Plotly.newPlot('chart', data, layout, config).then(gd => {
+      Plotly.newPlot('chart', data, layout).then(gd => {
           // Hide the extension title once the chart is displayed
           const extensionTitle = document.querySelector('h2');
           if (extensionTitle) {
