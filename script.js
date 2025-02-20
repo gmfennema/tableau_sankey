@@ -335,8 +335,10 @@ async function renderChart(config) {
       const chartContainer = document.getElementById('chart');
       const layout = {
           font: { size: 10 },
-          width: chartContainer.clientWidth,   // Use the container's current width
-          height: chartContainer.clientHeight  // And current height
+          width: chartContainer.clientWidth,
+          height: chartContainer.clientHeight,
+          paper_bgcolor: 'rgba(0,0,0,0)',  // Make plot background transparent
+          plot_bgcolor: 'rgba(0,0,0,0)'    // Make plotting area transparent
       };
       
       // Render the chart and then post-process its SVG for gradient fills on links
