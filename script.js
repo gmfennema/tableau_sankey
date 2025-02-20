@@ -301,25 +301,29 @@ async function renderChart(config) {
           return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
       });
       
-      // Configure the Plotly Sankey diagram data (pass target node colors with opacity)
+      // Configure the Plotly Sankey diagram data
       const data = [{
           type: "sankey",
           orientation: "h",
           node: {
               pad: 15,
-              thickness: 20,
+              thickness: 30,     // Increased default thickness
               line: { color: "black", width: 0.5 },
               label: nodeLabelsWithTotals,
-              color: nodeColorsArr
+              color: nodeColorsArr,
+              // Add these properties for relative sizing
+              arrangement: "snap",   // Ensures nodes are aligned
+              thickness: nodeTotals.map(total => 
+                  // Scale thickness based on the proportion of total flow
+                  (total / Math.max(...nodeTotals)) * 50  // Max thickness of 50
+              )
           },
           link: {
               source: links.map(link => link.source),
               target: links.map(link => link.target),
               value: links.map(link => link.value),
-              // Set each link color to its target node color with 0.7 opacity
               color: links.map(link => {
                   const targetColor = nodeColorsArr[link.target];
-                  // Convert hex to rgba with 0.7 opacity
                   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(targetColor);
                   const rgb = result ? {
                       r: parseInt(result[1], 16),
@@ -331,14 +335,20 @@ async function renderChart(config) {
           }
       }];
       
-      // Instead of using static dimensions from config, get dynamic sizing from the container
+      // Adjust layout to maximize vertical space
       const chartContainer = document.getElementById('chart');
       const layout = {
           font: { size: 10 },
           width: chartContainer.clientWidth,
           height: chartContainer.clientHeight,
-          paper_bgcolor: 'rgba(0,0,0,0)',  // Make plot background transparent
-          plot_bgcolor: 'rgba(0,0,0,0)'    // Make plotting area transparent
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          margin: {    // Reduce margins to maximize space
+              l: 5,
+              r: 5,
+              t: 5,
+              b: 5
+          }
       };
       
       // Render the chart and then post-process its SVG for gradient fills on links
