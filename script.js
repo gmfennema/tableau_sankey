@@ -301,7 +301,7 @@ async function renderChart(config) {
           return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
       });
       
-      // Configure the Plotly Sankey diagram data (pass a default link color)
+      // Configure the Plotly Sankey diagram data (pass target node colors with opacity)
       const data = [{
           type: "sankey",
           orientation: "h",
@@ -316,8 +316,18 @@ async function renderChart(config) {
               source: links.map(link => link.source),
               target: links.map(link => link.target),
               value: links.map(link => link.value),
-              // Use a dummy color; we will override with gradients below
-              color: links.map(() => "#AAAAAA")
+              // Set each link color to its target node color with 0.7 opacity
+              color: links.map(link => {
+                  const targetColor = nodeColorsArr[link.target];
+                  // Convert hex to rgba with 0.7 opacity
+                  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(targetColor);
+                  const rgb = result ? {
+                      r: parseInt(result[1], 16),
+                      g: parseInt(result[2], 16),
+                      b: parseInt(result[3], 16)
+                  } : null;
+                  return rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.7)` : targetColor;
+              })
           }
       }];
       
@@ -331,58 +341,12 @@ async function renderChart(config) {
       
       // Render the chart and then post-process its SVG for gradient fills on links
       Plotly.newPlot('chart', data, layout).then(gd => {
-          // Obtain the SVG element in the Plotly graph div
-          let svg = gd.querySelector('svg');
-          let defs = svg.querySelector('defs');
-          if (!defs) {
-              // Create <defs> if it doesn't exist
-              defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-              svg.insertBefore(defs, svg.firstChild);
+          // Hide the extension title once the chart is displayed
+          const extensionTitle = document.querySelector('h2');
+          if (extensionTitle) {
+              extensionTitle.style.display = 'none';
           }
-          
-          // Select all link path elements (ordered as in the data array)
-          const linkPaths = svg.querySelectorAll('.sankey-link path');
-          linkPaths.forEach((path, i) => {
-              if (i >= links.length) return; 
-              
-              // For each link get the corresponding source and target colors
-              const currentLink = links[i];
-              const sourceColor = nodeColorsArr[currentLink.source];
-              const targetColor = nodeColorsArr[currentLink.target];
-              
-              // Create a unique linearGradient id
-              const gradientId = "gradient" + i;
-              let linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-              linearGradient.setAttribute("id", gradientId);
-              linearGradient.setAttribute("gradientUnits", "userSpaceOnUse");
-              // Set a horizontal gradient direction (left-to-right)
-              linearGradient.setAttribute("x1", "0%");
-              linearGradient.setAttribute("y1", "0%");
-              linearGradient.setAttribute("x2", "100%");
-              linearGradient.setAttribute("y2", "0%");
-              
-              // Define gradient stops at 0% and 100%
-              let stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-              stop1.setAttribute("offset", "0%");
-              stop1.setAttribute("stop-color", sourceColor);
-              let stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-              stop2.setAttribute("offset", "100%");
-              stop2.setAttribute("stop-color", targetColor);
-              
-              linearGradient.appendChild(stop1);
-              linearGradient.appendChild(stop2);
-              defs.appendChild(linearGradient);
-              
-              // Update the current link's fill to the gradient
-              path.setAttribute("fill", `url(#${gradientId})`);
-          });
       });
-      
-      // Hide the extension title once the chart is displayed
-      const extensionTitle = document.querySelector('h2');
-      if (extensionTitle) {
-          extensionTitle.style.display = 'none';
-      }
       
   } catch (error) {
       console.error("Error rendering Sankey chart:", error);
