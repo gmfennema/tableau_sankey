@@ -307,15 +307,13 @@ async function renderChart(config) {
           orientation: "h",
           node: {
               pad: 15,
-              thickness: 30,     // Increased default thickness
+              thickness: 30,
               line: { color: "black", width: 0.5 },
               label: nodeLabelsWithTotals,
               color: nodeColorsArr,
-              // Add these properties for relative sizing
-              arrangement: "snap",   // Ensures nodes are aligned
+              arrangement: "snap",
               thickness: nodeTotals.map(total => 
-                  // Scale thickness based on the proportion of total flow
-                  (total / Math.max(...nodeTotals)) * 50  // Max thickness of 50
+                  (total / Math.max(...nodeTotals)) * 50
               )
           },
           link: {
@@ -335,15 +333,19 @@ async function renderChart(config) {
           }
       }];
       
-      // Adjust layout to maximize vertical space
+      // Get the container dimensions
       const chartContainer = document.getElementById('chart');
+      const containerWidth = chartContainer.clientWidth;
+      const containerHeight = chartContainer.clientHeight || window.innerHeight;  // Fallback if clientHeight is 0
+      
+      // Adjust layout to maximize space
       const layout = {
           font: { size: 10 },
-          width: chartContainer.clientWidth,
-          height: chartContainer.clientHeight,
+          width: containerWidth,
+          height: containerHeight,
           paper_bgcolor: 'rgba(0,0,0,0)',
           plot_bgcolor: 'rgba(0,0,0,0)',
-          margin: {    // Reduce margins to maximize space
+          margin: {
               l: 5,
               r: 5,
               t: 5,
