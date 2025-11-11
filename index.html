@@ -7,90 +7,482 @@
   <script type="module" src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
   <!-- Load Plotly -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 10px;
+    :root {
+      --base-bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-alt: #f9fbff;
+      --border: rgba(15, 23, 42, 0.08);
+      --text-primary: #1f2933;
+      --text-secondary: #52606d;
+      --accent: #1E74FF;
+      --accent-muted: rgba(30, 116, 255, 0.16);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow-soft: 0 20px 50px rgba(15, 23, 42, 0.15);
+    }
+
+    * {
       box-sizing: border-box;
-      background-color: transparent !important;
     }
-    .hidden {
-      display: none;
-    }
-    .config-section, .chart-section {
-      margin-bottom: 20px;
-      background-color: transparent;
+
+    html, body {
       height: 100%;
     }
-    select, button, input {
-      font-size: 14px;
-      padding: 8px;
-      margin: 5px 0;
-      min-width: 150px;
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 32px;
+      background: var(--base-bg);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
     }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      flex: 1;
+    }
+
+    .config-panel {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      box-shadow: var(--shadow-soft);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      max-width: 840px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .panel-header {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-header .badge {
+      align-self: flex-start;
+      padding: 6px 14px;
+      background: var(--accent-muted);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .panel-body {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card-section {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    select,
+    input[type="text"] {
+      appearance: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    select:focus,
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(30, 116, 255, 0.2);
+      background: #ffffff;
+    }
+
+    select {
+      background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+                        linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+      background-position: calc(100% - 20px) calc(50% + 2px), calc(100% - 14px) calc(50% + 2px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 36px;
+    }
+
+    .helper-text {
+      font-size: 0.9rem;
+    }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .section-eyebrow {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .card-subsection {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(30, 116, 255, 0.1), rgba(255, 255, 255, 0.6));
+      border: 1px solid rgba(30, 116, 255, 0.18);
+    }
+
+    .group-title {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .radio-option {
+      display: flex;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+      max-width: 280px;
+    }
+
+    .radio-option input[type="radio"] {
+      margin-top: 3px;
+      accent-color: var(--accent);
+    }
+
+    .radio-option:hover {
+      border-color: var(--accent);
+      box-shadow: 0 10px 24px rgba(30, 116, 255, 0.16);
+      background: #ffffff;
+    }
+
+    .radio-option span {
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .radio-option small {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .node-color-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: rgba(255, 255, 255, 0.85);
+      transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      flex-wrap: wrap;
+    }
+
+    .node-color-row:hover {
+      border-color: var(--accent);
+      box-shadow: 0 8px 20px rgba(30, 116, 255, 0.18);
+      background: #ffffff;
+    }
+
+    .node-color-label {
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .color-chip {
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: transparent;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    }
+
+    .color-chip::-webkit-color-swatch-wrapper {
+      padding: 0;
+      border-radius: var(--radius-sm);
+    }
+
+    .color-chip::-webkit-color-swatch {
+      border: none;
+      border-radius: var(--radius-sm);
+    }
+
+    .pattern-rule {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px dashed rgba(30, 116, 255, 0.4);
+      background: rgba(30, 116, 255, 0.08);
+      flex-wrap: wrap;
+    }
+
+    .pattern-rule .text-input {
+      flex: 1 0 220px;
+      min-width: 200px;
+    }
+
+    .ghost-button {
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: var(--radius-sm);
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.5);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .ghost-button:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(30, 116, 255, 0.22);
+      background: #ffffff;
+    }
+
+    .ghost-button.ghost-danger {
+      border-color: rgba(185, 25, 25, 0.24);
+      color: #b91919;
+      background: rgba(255, 255, 255, 0.65);
+    }
+
+    .ghost-button.ghost-danger:hover {
+      border-color: #b91919;
+      color: #b91919;
+      box-shadow: 0 8px 18px rgba(185, 25, 25, 0.22);
+    }
+
+    .add-pattern-btn {
+      align-self: flex-start;
+    }
+
+    .panel-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .primary-button {
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 0.98rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 18px 32px rgba(30, 116, 255, 0.25);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .primary-button:hover {
+      background: #0f5cd7;
+      box-shadow: 0 22px 40px rgba(15, 92, 215, 0.28);
+      transform: translateY(-1px);
+    }
+
+    .primary-button:active {
+      transform: translateY(0);
+      box-shadow: 0 14px 28px rgba(15, 92, 215, 0.25);
+    }
+
+    .chart-section {
+      flex: 1;
+      display: flex;
+    }
+
     #chart {
       width: 100%;
-      height: 100%;
-      background-color: transparent !important;
+      flex: 1;
+      min-height: 360px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 24px 45px rgba(15, 23, 42, 0.16);
+      background: var(--surface);
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 24px;
+      }
+
+      .config-panel {
+        padding: 24px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 18px;
+      }
+
+      .config-panel {
+        padding: 20px;
+      }
+
+      .panel-actions {
+        justify-content: stretch;
+      }
+
+      .primary-button {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <h2>Tableau Sankey Chart Extension</h2>
-  
-  <!-- Configuration Section (shown when settings have not yet been saved) -->
-  <div class="config-section" id="configSection">
-    <div id="worksheetConfig">
-      <label for="worksheetSelect">Select Worksheet:</label>
-      <select id="worksheetSelect">
-        <option value="" disabled selected>Select Worksheet</option>
-      </select>
-    </div>
-    <!-- Column mapping UI – initially hidden -->
-    <div id="columnMapping" class="hidden">
-      <p>Map columns to the following fields:</p>
-      <label for="sourceSelect">Source:</label>
-      <select id="sourceSelect">
-        <option value="" disabled selected>Select Source Column</option>
-      </select>
-      <br>
-      <label for="targetSelect">Target:</label>
-      <select id="targetSelect">
-        <option value="" disabled selected>Select Target Column</option>
-      </select>
-      <br>
-      <label for="amountSelect">Amount:</label>
-      <select id="amountSelect">
-        <option value="" disabled selected>Select Amount Column</option>
-      </select>
-      <br>
-      <!-- Advanced color matching options -->
-      <div id="colorMatchingMode" class="hidden" style="margin-top: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-        <p style="font-weight: bold; margin-top: 0;">Advanced Color Matching:</p>
-        <label>
-          <input type="radio" name="colorMode" value="exact" checked>
-          Exact Match (match by exact title)
-        </label>
-        <br>
-        <label>
-          <input type="radio" name="colorMode" value="pattern">
-          Pattern Match (title CONTAINS pattern)
-        </label>
+  <div class="app-shell">
+    <!-- Configuration Section (shown when settings have not yet been saved) -->
+    <section class="config-panel" id="configSection">
+      <div class="panel-header">
+        <span class="badge">Configuration</span>
+        <h1>Sankey Flow Setup</h1>
+        <p>Connect a worksheet, map your fields, and dial in a tailored color palette for a polished Sankey experience.</p>
       </div>
-      <!-- New container for node color pickers -->
-      <div id="nodeColorsMapping" class="hidden">
-        <!-- Node color pickers will be dynamically populated -->
+      <div class="panel-body">
+        <div id="worksheetConfig" class="card-section">
+          <div class="form-field">
+            <label class="field-label" for="worksheetSelect">Select Worksheet</label>
+            <select id="worksheetSelect">
+              <option value="" disabled selected>Select Worksheet</option>
+            </select>
+          </div>
+          <p class="helper-text">Once chosen, you can map which fields power the flow.</p>
+        </div>
+        <!-- Column mapping UI – initially hidden -->
+        <div id="columnMapping" class="card-section hidden">
+          <h2 class="section-title">Field Mapping</h2>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="field-label" for="sourceSelect">Source</label>
+              <select id="sourceSelect">
+                <option value="" disabled selected>Select Source Column</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label" for="targetSelect">Target</label>
+              <select id="targetSelect">
+                <option value="" disabled selected>Select Target Column</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="field-label" for="amountSelect">Amount</label>
+              <select id="amountSelect">
+                <option value="" disabled selected>Select Amount Column</option>
+              </select>
+            </div>
+          </div>
+          <!-- Advanced color matching options -->
+          <div id="colorMatchingMode" class="card-subsection hidden">
+            <span class="section-eyebrow">Color Strategy</span>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="colorMode" value="exact" checked>
+                <div>
+                  <span>Exact Match</span>
+                  <small>Assign a unique color to every node label.</small>
+                </div>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="colorMode" value="pattern">
+                <div>
+                  <span>Pattern Match</span>
+                  <small>Share colors across nodes using contains rules.</small>
+                </div>
+              </label>
+            </div>
+          </div>
+          <!-- New container for node color pickers -->
+          <div id="nodeColorsMapping" class="card-subsection hidden">
+            <!-- Node color pickers will be dynamically populated -->
+          </div>
+          <div class="panel-actions">
+            <button id="saveConfigBtn" class="primary-button">Save &amp; Render</button>
+          </div>
+        </div>
       </div>
-      <button id="saveConfigBtn">Save Configuration</button>
-    </div>
+    </section>
+    
+    <!-- Chart Section -->
+    <section class="chart-section">
+      <div id="chart"></div>
+    </section>
   </div>
-  
-  <!-- Chart Section -->
-  <div class="chart-section">
-    <div id="chart"></div>
-  </div>
-  
+
   <!-- Application logic -->
   <script src="script.js"></script>
 </body>

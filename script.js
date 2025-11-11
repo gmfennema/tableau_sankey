@@ -1,3 +1,5 @@
+const ACCENT_COLOR = '#1E74FF';
+
 document.addEventListener('DOMContentLoaded', () => {
   tableau.extensions.initializeAsync().then(() => {
       console.log("Tableau Extension Initialized");
@@ -172,39 +174,47 @@ async function updateNodeColorsMapping() {
       
       if (colorMode === 'exact') {
           // Exact match mode: show color picker for each node
-          const title = document.createElement('p');
-          title.textContent = 'Select Node Colors (Exact Match):';
+          const title = document.createElement('h3');
+          title.className = 'group-title';
+          title.textContent = 'Node Colors';
           nodeColorsMappingContainer.appendChild(title);
           nodes.forEach(node => {
-              const label = document.createElement('label');
-              label.textContent = node + ": ";
+              const row = document.createElement('div');
+              row.className = 'node-color-row';
+
+              const label = document.createElement('span');
+              label.className = 'node-color-label';
+              label.textContent = node;
+
               const colorInput = document.createElement('input');
               colorInput.type = 'color';
-              colorInput.value = "#0000FF";
+              colorInput.value = ACCENT_COLOR;
               colorInput.dataset.nodeLabel = node;
-              nodeColorsMappingContainer.appendChild(label);
-              nodeColorsMappingContainer.appendChild(colorInput);
-              nodeColorsMappingContainer.appendChild(document.createElement('br'));
+              colorInput.className = 'color-chip';
+
+              row.appendChild(label);
+              row.appendChild(colorInput);
+              nodeColorsMappingContainer.appendChild(row);
           });
       } else {
           // Pattern match mode: show pattern input and color picker pairs
-          const title = document.createElement('p');
-          title.textContent = 'Define Color Patterns (Title CONTAINS pattern):';
+          const title = document.createElement('h3');
+          title.className = 'group-title';
+          title.textContent = 'Color Patterns';
           nodeColorsMappingContainer.appendChild(title);
           
           // Add a button to add new pattern rules
           const addPatternBtn = document.createElement('button');
           addPatternBtn.type = 'button';
           addPatternBtn.textContent = '+ Add Pattern Rule';
-          addPatternBtn.style.marginBottom = '10px';
-          addPatternBtn.className = 'add-pattern-btn';
+          addPatternBtn.className = 'ghost-button add-pattern-btn';
           addPatternBtn.addEventListener('click', () => {
-              addPatternRule('', '#0000FF');
+              addPatternRule();
           });
           nodeColorsMappingContainer.appendChild(addPatternBtn);
           
           // Add initial pattern rule
-          addPatternRule('', '#0000FF');
+          addPatternRule();
       }
       
       // Unhide the node colors section
@@ -217,29 +227,26 @@ async function updateNodeColorsMapping() {
 /**
  * Adds a pattern rule input row to the color mapping container
  */
-function addPatternRule(pattern, color) {
+function addPatternRule(pattern = '', color = ACCENT_COLOR) {
   const nodeColorsMappingContainer = document.getElementById('nodeColorsMapping');
   const patternDiv = document.createElement('div');
   patternDiv.className = 'pattern-rule';
-  patternDiv.style.marginBottom = '10px';
-  patternDiv.style.display = 'flex';
-  patternDiv.style.alignItems = 'center';
-  patternDiv.style.gap = '10px';
   
   const patternInput = document.createElement('input');
   patternInput.type = 'text';
   patternInput.placeholder = 'Enter pattern (e.g., "Marketing", "Sales")';
   patternInput.value = pattern;
-  patternInput.style.flex = '1';
-  patternInput.style.minWidth = '200px';
+  patternInput.className = 'text-input';
   
   const colorInput = document.createElement('input');
   colorInput.type = 'color';
   colorInput.value = color;
+  colorInput.className = 'color-chip';
   
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.textContent = 'Remove';
+  removeBtn.className = 'ghost-button ghost-danger';
   removeBtn.addEventListener('click', () => {
       patternDiv.remove();
   });
@@ -418,10 +425,10 @@ async function renderChart(config) {
                       return patternRule.color;
                   }
               }
-              return "#0000FF"; // Default color if no pattern matches
+              return ACCENT_COLOR; // Default color if no pattern matches
           } else {
               // Exact matching mode: use exact node label
-              return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
+              return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : ACCENT_COLOR;
           }
       });
       
