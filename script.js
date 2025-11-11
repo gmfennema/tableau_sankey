@@ -35,6 +35,13 @@ function showConfigUI() {
   document.getElementById('sourceSelect').addEventListener('change', updateNodeColorsMapping);
   document.getElementById('targetSelect').addEventListener('change', updateNodeColorsMapping);
   
+  // Add event listener for color mode changes
+  document.querySelectorAll('input[name="colorMode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+          updateNodeColorsMapping();
+      });
+  });
+  
   // Save configuration when the button is clicked
   document.getElementById('saveConfigBtn').addEventListener('click', () => {
       saveConfiguration();
@@ -102,6 +109,16 @@ async function populateColumnMapping() {
       
       // Reveal the column mapping section
       document.getElementById('columnMapping').classList.remove('hidden');
+      
+      // Show color matching mode section
+      document.getElementById('colorMatchingMode').classList.remove('hidden');
+      
+      // Add event listener for color mode changes
+      document.querySelectorAll('input[name="colorMode"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+              updateNodeColorsMapping();
+          });
+      });
   } catch (error) {
       console.error("Error populating column mapping:", error);
   }
@@ -146,27 +163,91 @@ async function updateNodeColorsMapping() {
       });
       const nodes = Array.from(nodeSet);
       
-      // Populate the nodeColorsMapping container with a color picker for each node
+      // Get the selected color matching mode
+      const colorMode = document.querySelector('input[name="colorMode"]:checked')?.value || 'exact';
+      
+      // Populate the nodeColorsMapping container based on the selected mode
       const nodeColorsMappingContainer = document.getElementById('nodeColorsMapping');
-      nodeColorsMappingContainer.innerHTML = '<p>Select Node Colors:</p>';
-      nodes.forEach(node => {
-          const label = document.createElement('label');
-          label.textContent = node + ": ";
-          const colorInput = document.createElement('input');
-          colorInput.type = 'color';
-          // Set default to blue (#0000FF) – you can change this default if desired
-          colorInput.value = "#0000FF";
-          // Store the node name in a data attribute so we can retrieve it later
-          colorInput.dataset.nodeLabel = node;
-          nodeColorsMappingContainer.appendChild(label);
-          nodeColorsMappingContainer.appendChild(colorInput);
-          nodeColorsMappingContainer.appendChild(document.createElement('br'));
-      });
+      nodeColorsMappingContainer.innerHTML = '';
+      
+      if (colorMode === 'exact') {
+          // Exact match mode: show color picker for each node
+          const title = document.createElement('p');
+          title.textContent = 'Select Node Colors (Exact Match):';
+          nodeColorsMappingContainer.appendChild(title);
+          nodes.forEach(node => {
+              const label = document.createElement('label');
+              label.textContent = node + ": ";
+              const colorInput = document.createElement('input');
+              colorInput.type = 'color';
+              colorInput.value = "#0000FF";
+              colorInput.dataset.nodeLabel = node;
+              nodeColorsMappingContainer.appendChild(label);
+              nodeColorsMappingContainer.appendChild(colorInput);
+              nodeColorsMappingContainer.appendChild(document.createElement('br'));
+          });
+      } else {
+          // Pattern match mode: show pattern input and color picker pairs
+          const title = document.createElement('p');
+          title.textContent = 'Define Color Patterns (Title CONTAINS pattern):';
+          nodeColorsMappingContainer.appendChild(title);
+          
+          // Add a button to add new pattern rules
+          const addPatternBtn = document.createElement('button');
+          addPatternBtn.type = 'button';
+          addPatternBtn.textContent = '+ Add Pattern Rule';
+          addPatternBtn.style.marginBottom = '10px';
+          addPatternBtn.className = 'add-pattern-btn';
+          addPatternBtn.addEventListener('click', () => {
+              addPatternRule('', '#0000FF');
+          });
+          nodeColorsMappingContainer.appendChild(addPatternBtn);
+          
+          // Add initial pattern rule
+          addPatternRule('', '#0000FF');
+      }
+      
       // Unhide the node colors section
       nodeColorsMappingContainer.classList.remove('hidden');
   } catch (error) {
       console.error("Error updating node colors mapping:", error);
   }
+}
+
+/**
+ * Adds a pattern rule input row to the color mapping container
+ */
+function addPatternRule(pattern, color) {
+  const nodeColorsMappingContainer = document.getElementById('nodeColorsMapping');
+  const patternDiv = document.createElement('div');
+  patternDiv.className = 'pattern-rule';
+  patternDiv.style.marginBottom = '10px';
+  patternDiv.style.display = 'flex';
+  patternDiv.style.alignItems = 'center';
+  patternDiv.style.gap = '10px';
+  
+  const patternInput = document.createElement('input');
+  patternInput.type = 'text';
+  patternInput.placeholder = 'Enter pattern (e.g., "Marketing", "Sales")';
+  patternInput.value = pattern;
+  patternInput.style.flex = '1';
+  patternInput.style.minWidth = '200px';
+  
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  colorInput.value = color;
+  
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', () => {
+      patternDiv.remove();
+  });
+  
+  patternDiv.appendChild(patternInput);
+  patternDiv.appendChild(colorInput);
+  patternDiv.appendChild(removeBtn);
+  nodeColorsMappingContainer.appendChild(patternDiv);
 }
 
 async function saveConfiguration() {
@@ -181,16 +262,46 @@ async function saveConfiguration() {
       return;
   }
   
-  // Retrieve node color selections from the UI
+  // Get the selected color matching mode
+  const colorMode = document.querySelector('input[name="colorMode"]:checked')?.value || 'exact';
+  
+  // Retrieve node color selections from the UI based on mode
   let nodeColors = {};
-  document.querySelectorAll('#nodeColorsMapping input[type="color"]').forEach(input => {
-      let nodeLabel = input.dataset.nodeLabel;
-      nodeColors[nodeLabel] = input.value;
-  });
+  let colorPatterns = [];
+  
+  if (colorMode === 'exact') {
+      // Exact match mode: collect colors by exact node label
+      document.querySelectorAll('#nodeColorsMapping input[type="color"]').forEach(input => {
+          let nodeLabel = input.dataset.nodeLabel;
+          nodeColors[nodeLabel] = input.value;
+      });
+  } else {
+      // Pattern match mode: collect pattern rules
+      // Select only divs with the pattern-rule class
+      const patternDivs = document.querySelectorAll('#nodeColorsMapping .pattern-rule');
+      patternDivs.forEach(div => {
+          const patternInput = div.querySelector('input[type="text"]');
+          const colorInput = div.querySelector('input[type="color"]');
+          if (patternInput && colorInput && patternInput.value.trim()) {
+              colorPatterns.push({
+                  pattern: patternInput.value.trim(),
+                  color: colorInput.value
+              });
+          }
+      });
+  }
   
   // Save the configuration using Tableau's settings API.
   // Notice we removed chartWidth and chartHeight from config.
-  const config = { worksheetName, sourceCol, targetCol, amountCol, nodeColors };
+  const config = { 
+      worksheetName, 
+      sourceCol, 
+      targetCol, 
+      amountCol, 
+      colorMode,
+      nodeColors: colorMode === 'exact' ? nodeColors : undefined,
+      colorPatterns: colorMode === 'pattern' ? colorPatterns : undefined
+  };
   tableau.extensions.settings.set("sankeyConfig", JSON.stringify(config));
   await tableau.extensions.settings.saveAsync();
   
@@ -296,9 +407,22 @@ async function renderChart(config) {
       const nodeTotals = nodeLabels.map((label, i) => Math.max(inFlow[i], outFlow[i]));
       const nodeLabelsWithTotals = nodeLabels.map((label, i) => `${label} (${nodeTotals[i]})`);
       
-      // Create node colors from config with a default fallback
+      // Create node colors from config based on matching mode
+      // Default to 'exact' mode for backward compatibility
+      const colorMode = config.colorMode || 'exact';
       const nodeColorsArr = nodeLabels.map(label => {
-          return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
+          if (colorMode === 'pattern' && config.colorPatterns) {
+              // Pattern matching mode: find first pattern that matches
+              for (const patternRule of config.colorPatterns) {
+                  if (label.toLowerCase().includes(patternRule.pattern.toLowerCase())) {
+                      return patternRule.color;
+                  }
+              }
+              return "#0000FF"; // Default color if no pattern matches
+          } else {
+              // Exact matching mode: use exact node label
+              return (config.nodeColors && config.nodeColors[label]) ? config.nodeColors[label] : "#0000FF";
+          }
       });
       
       // Configure the Plotly Sankey diagram data

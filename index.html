@@ -65,6 +65,19 @@
         <option value="" disabled selected>Select Amount Column</option>
       </select>
       <br>
+      <!-- Advanced color matching options -->
+      <div id="colorMatchingMode" class="hidden" style="margin-top: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+        <p style="font-weight: bold; margin-top: 0;">Advanced Color Matching:</p>
+        <label>
+          <input type="radio" name="colorMode" value="exact" checked>
+          Exact Match (match by exact title)
+        </label>
+        <br>
+        <label>
+          <input type="radio" name="colorMode" value="pattern">
+          Pattern Match (title CONTAINS pattern)
+        </label>
+      </div>
       <!-- New container for node color pickers -->
       <div id="nodeColorsMapping" class="hidden">
         <!-- Node color pickers will be dynamically populated -->
