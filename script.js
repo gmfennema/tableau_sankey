@@ -484,13 +484,89 @@ async function renderChart(config) {
           }
       };
       
-      // Render the chart and then post-process its SVG for gradient fills on links
+      // Render the chart and add interactivity
       Plotly.newPlot('chart', data, layout).then(gd => {
           // Hide the extension title once the chart is displayed
           const extensionTitle = document.querySelector('h2');
           if (extensionTitle) {
               extensionTitle.style.display = 'none';
           }
+
+          // Store original colors for resetting the view
+          gd.originalNodeColors = JSON.parse(JSON.stringify(gd.data[0].node.color));
+          gd.originalLinkColors = JSON.parse(JSON.stringify(gd.data[0].link.color));
+
+          gd.on('plotly_click', function(eventData) {
+              const chart = gd;
+              const selectionState = chart.tag || {}; // Use 'tag' for custom data
+
+              // Function to reset chart to its original, un-dimmed state
+              const resetChart = () => {
+                  Plotly.restyle(chart, {
+                      'node.color': [chart.originalNodeColors],
+                      'link.color': [chart.originalLinkColors]
+                  });
+                  chart.tag = {}; // Clear selection state
+              };
+
+              // If the background is clicked or there's no point data, reset the chart
+              if (!eventData.points || eventData.points.length === 0) {
+                  resetChart();
+                  return;
+              }
+
+              const clickedPoint = eventData.points[0];
+              const clickedIdentifier = {
+                  type: clickedPoint.hasOwnProperty('label') ? 'node' : 'link',
+                  pointNumber: clickedPoint.pointNumber
+              };
+
+              // If the user clicks the same element again, reset the chart
+              if (selectionState.identifier && 
+                  selectionState.identifier.type === clickedIdentifier.type &&
+                  selectionState.identifier.pointNumber === clickedIdentifier.pointNumber) {
+                  resetChart();
+                  return;
+              }
+
+              // A new selection is being made, so calculate dimmed colors
+              const DIM_OPACITY = 0.2;
+              let newNodeColors = chart.originalNodeColors.map(color => convertToRgba(color, DIM_OPACITY));
+              let newLinkColors = chart.originalLinkColors.map(color => convertToRgba(color, DIM_OPACITY));
+              const allLinks = chart.data[0].link;
+
+              if (clickedIdentifier.type === 'node') {
+                  const nodeIndex = clickedIdentifier.pointNumber;
+                  // Highlight the selected node and its connected links and nodes
+                  newNodeColors[nodeIndex] = chart.originalNodeColors[nodeIndex];
+
+                  allLinks.source.forEach((source, linkIndex) => {
+                      const target = allLinks.target[linkIndex];
+                      if (source === nodeIndex || target === nodeIndex) {
+                          newLinkColors[linkIndex] = chart.originalLinkColors[linkIndex];
+                          newNodeColors[source] = chart.originalNodeColors[source];
+                          newNodeColors[target] = chart.originalNodeColors[target];
+                      }
+                  });
+              } else { // 'link'
+                  const linkIndex = clickedIdentifier.pointNumber;
+                  const sourceNode = allLinks.source[linkIndex];
+                  const targetNode = allLinks.target[linkIndex];
+                  // Highlight the selected link and its source/target nodes
+                  newLinkColors[linkIndex] = chart.originalLinkColors[linkIndex];
+                  newNodeColors[sourceNode] = chart.originalNodeColors[sourceNode];
+                  newNodeColors[targetNode] = chart.originalNodeColors[targetNode];
+              }
+
+              // Apply the new colors to dim/highlight elements
+              Plotly.restyle(chart, {
+                  'node.color': [newNodeColors],
+                  'link.color': [newLinkColors]
+              });
+
+              // Save the new selection state
+              chart.tag = { identifier: clickedIdentifier };
+          });
       });
       
   } catch (error) {
@@ -506,3 +582,32 @@ window.addEventListener('resize', () => {
        renderChart(config);
   }
 });
+
+/**
+ * Converts a color string (hex, rgb) to an rgba string with a specified opacity.
+ * @param {string} color The input color string.
+ * @param {number} opacity The desired opacity (0.0 to 1.0).
+ * @returns {string} The resulting rgba color string.
+ */
+function convertToRgba(color, opacity) {
+    // Handles rgba colors by replacing the existing opacity
+    if (color.startsWith('rgba')) {
+        return color.replace(/, [0-9.]+?\)$/, `, ${opacity})`);
+    }
+    // Handles rgb colors by converting them to rgba
+    if (color.startsWith('rgb')) {
+        return color.replace(')', `, ${opacity})`).replace('rgb', 'rgba');
+    }
+    // Handles hex colors
+    if (color.startsWith('#')) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+        if (result) {
+            const r = parseInt(result[1], 16);
+            const g = parseInt(result[2], 16);
+            const b = parseInt(result[3], 16);
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+    }
+    // Fallback for named colors or other formats that can't be converted
+    return color; 
+}
