@@ -493,23 +493,21 @@ async function renderChart(config) {
           }
 
           // Store original colors for resetting the view
-          gd.originalNodeColors = JSON.parse(JSON.stringify(gd.data[0].node.color));
-          gd.originalLinkColors = JSON.parse(JSON.stringify(gd.data[0].link.color));
+          const originalNodeColors = JSON.parse(JSON.stringify(gd.data[0].node.color));
+          const originalLinkColors = JSON.parse(JSON.stringify(gd.data[0].link.color));
 
           gd.on('plotly_click', function(eventData) {
-              const chart = gd;
-              const selectionState = chart.tag || {}; // Use 'tag' for custom data
+              const selectionState = gd.tag || {};
 
               // Function to reset chart to its original, un-dimmed state
               const resetChart = () => {
-                  Plotly.restyle(chart, {
-                      'node.color': [chart.originalNodeColors],
-                      'link.color': [chart.originalLinkColors]
+                  Plotly.restyle(gd, {
+                      'node.color': [originalNodeColors],
+                      'link.color': [originalLinkColors]
                   });
-                  chart.tag = {}; // Clear selection state
+                  gd.tag = {}; // Clear selection state
               };
 
-              // If the background is clicked or there's no point data, reset the chart
               if (!eventData.points || eventData.points.length === 0) {
                   resetChart();
                   return;
@@ -521,51 +519,50 @@ async function renderChart(config) {
                   pointNumber: clickedPoint.pointNumber
               };
 
-              // If the user clicks the same element again, reset the chart
-              if (selectionState.identifier && 
+              if (selectionState.identifier &&
                   selectionState.identifier.type === clickedIdentifier.type &&
                   selectionState.identifier.pointNumber === clickedIdentifier.pointNumber) {
                   resetChart();
                   return;
               }
 
-              // A new selection is being made, so calculate dimmed colors
               const DIM_OPACITY = 0.2;
-              let newNodeColors = chart.originalNodeColors.map(color => convertToRgba(color, DIM_OPACITY));
-              let newLinkColors = chart.originalLinkColors.map(color => convertToRgba(color, DIM_OPACITY));
-              const allLinks = chart.data[0].link;
+              const FULL_OPACITY = 1.0;
+              const LINK_OPACITY = 0.7; // Default link opacity
+
+              let newNodeColors = originalNodeColors.map(color => convertToRgba(color, DIM_OPACITY));
+              let newLinkColors = originalLinkColors.map(color => convertToRgba(color, DIM_OPACITY));
+              
+              const allLinks = gd.data[0].link;
 
               if (clickedIdentifier.type === 'node') {
                   const nodeIndex = clickedIdentifier.pointNumber;
-                  // Highlight the selected node and its connected links and nodes
-                  newNodeColors[nodeIndex] = chart.originalNodeColors[nodeIndex];
+                  newNodeColors[nodeIndex] = convertToRgba(originalNodeColors[nodeIndex], FULL_OPACITY);
 
                   allLinks.source.forEach((source, linkIndex) => {
                       const target = allLinks.target[linkIndex];
                       if (source === nodeIndex || target === nodeIndex) {
-                          newLinkColors[linkIndex] = chart.originalLinkColors[linkIndex];
-                          newNodeColors[source] = chart.originalNodeColors[source];
-                          newNodeColors[target] = chart.originalNodeColors[target];
+                          newLinkColors[linkIndex] = convertToRgba(originalLinkColors[linkIndex], LINK_OPACITY);
+                          newNodeColors[source] = convertToRgba(originalNodeColors[source], FULL_OPACITY);
+                          newNodeColors[target] = convertToRgba(originalNodeColors[target], FULL_OPACITY);
                       }
                   });
               } else { // 'link'
                   const linkIndex = clickedIdentifier.pointNumber;
                   const sourceNode = allLinks.source[linkIndex];
                   const targetNode = allLinks.target[linkIndex];
-                  // Highlight the selected link and its source/target nodes
-                  newLinkColors[linkIndex] = chart.originalLinkColors[linkIndex];
-                  newNodeColors[sourceNode] = chart.originalNodeColors[sourceNode];
-                  newNodeColors[targetNode] = chart.originalNodeColors[targetNode];
+
+                  newLinkColors[linkIndex] = convertToRgba(originalLinkColors[linkIndex], LINK_OPACITY);
+                  newNodeColors[sourceNode] = convertToRgba(originalNodeColors[sourceNode], FULL_OPACITY);
+                  newNodeColors[targetNode] = convertToRgba(originalNodeColors[targetNode], FULL_OPACITY);
               }
 
-              // Apply the new colors to dim/highlight elements
-              Plotly.restyle(chart, {
+              Plotly.restyle(gd, {
                   'node.color': [newNodeColors],
                   'link.color': [newLinkColors]
               });
 
-              // Save the new selection state
-              chart.tag = { identifier: clickedIdentifier };
+              gd.tag = { identifier: clickedIdentifier };
           });
       });
       
@@ -584,30 +581,34 @@ window.addEventListener('resize', () => {
 });
 
 /**
- * Converts a color string (hex, rgb) to an rgba string with a specified opacity.
+ * Converts a color string (hex, rgb, rgba) to an rgba string with a specified opacity.
+ * This is a more robust implementation that avoids brittle regex.
  * @param {string} color The input color string.
  * @param {number} opacity The desired opacity (0.0 to 1.0).
  * @returns {string} The resulting rgba color string.
  */
 function convertToRgba(color, opacity) {
-    // Handles rgba colors by replacing the existing opacity
-    if (color.startsWith('rgba')) {
-        return color.replace(/, [0-9.]+?\)$/, `, ${opacity})`);
+    // If it's already an rgba string, we can parse it to get the RGB values.
+    if (color.startsWith('rgb')) { // This handles both 'rgb(' and 'rgba('
+        const parts = color.substring(color.indexOf('(') + 1, color.length - 1).split(',');
+        return `rgba(${parts[0].trim()}, ${parts[1].trim()}, ${parts[2].trim()}, ${opacity})`;
     }
-    // Handles rgb colors by converting them to rgba
-    if (color.startsWith('rgb')) {
-        return color.replace(')', `, ${opacity})`).replace('rgb', 'rgba');
-    }
-    // Handles hex colors
+    
+    // Handle hex colors
     if (color.startsWith('#')) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
-        if (result) {
-            const r = parseInt(result[1], 16);
-            const g = parseInt(result[2], 16);
-            const b = parseInt(result[3], 16);
+        let hex = color.slice(1);
+        if (hex.length === 3) {
+            hex = hex.split('').map(char => char + char).join('');
+        }
+        if (hex.length === 6) {
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
             return `rgba(${r}, ${g}, ${b}, ${opacity})`;
         }
     }
-    // Fallback for named colors or other formats that can't be converted
+
+    // Fallback for named colors or invalid formats, though it won't be transparent.
+    // For a truly robust solution, a color-parsing library would be needed.
     return color; 
 }
